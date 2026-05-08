@@ -1,0 +1,24 @@
+# HUGO-Assistant — .gitignore
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/.idea
+/.vscode
+*.log
+
+# User uploads (don't track)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
+# Generated logo (binary, use setup-copy-logo route)
+/public/favicon.png

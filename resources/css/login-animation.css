@@ -1,0 +1,49 @@
+/* Animated orange diagonal zebra-crossing background */
+.animated-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 0;
+}
+
+.strip-pair {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 30px; /* Gap between strips in a pair */
+    animation: zebraCross 4s linear infinite;
+}
+
+.strip {
+    width: 200vw; /* Extra wide to ensure full coverage */
+    height: 6px;
+    background: linear-gradient(90deg, transparent, #FF8C00, transparent);
+    border-radius: 3px;
+    box-shadow: 0 0 15px rgba(255, 140, 0, 0.7);
+    transform: rotate(45deg);
+    transform-origin: left center;
+}
+
+/* Continuous zebra-crossing pattern - no fade in/out */
+.strip-pair:nth-child(1) { top: -200px; left: -50%; animation-delay: 0s; }
+.strip-pair:nth-child(2) { top: -200px; left: -30%; animation-delay: 0.8s; }
+.strip-pair:nth-child(3) { top: -200px; left: -10%; animation-delay: 1.6s; }
+.strip-pair:nth-child(4) { top: -200px; left: 10%; animation-delay: 2.4s; }
+.strip-pair:nth-child(5) { top: -200px; left: 30%; animation-delay: 3.2s; }
+.strip-pair:nth-child(6) { top: -200px; left: 50%; animation-delay: 0.4s; }
+.strip-pair:nth-child(7) { top: -200px; left: 70%; animation-delay: 1.2s; }
+.strip-pair:nth-child(8) { top: -200px; left: 90%; animation-delay: 2.0s; }
+.strip-pair:nth-child(9) { top: -200px; left: 110%; animation-delay: 2.8s; }
+.strip-pair:nth-child(10) { top: -200px; left: 130%; animation-delay: 3.6s; }
+
+@keyframes zebraCross {
+    0% {
+        transform: translateY(-200px);
+    }
+    100% {
+        transform: translateY(100vh + 200px);
+    }
+}
