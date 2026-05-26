@@ -2,34 +2,27 @@
 @section('page-title', 'Edit Staff')
 @section('content')
     <div class="animate-slide-up">
-        <div style="margin-bottom: 22px;">
-            <a href="{{ route('staff.index') }}"
-                style="display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); text-decoration:none; font-size:13.5px; margin-bottom:12px;">
-                <svg viewBox="0 0 24 24" style="width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.5;">
-                    <polyline points="15 18 9 12 15 6" />
-                </svg>
-                Kembali ke Daftar
-            </a>
-            <h2 style="font-size: 20px; font-weight: 700; color: #111827;">Edit Staff — {{ $staff->name }}</h2>
-        </div>
+        @include('partials.page-header', [
+            'backUrl' => route('staff.index'),
+            'backLabel' => 'Kembali ke Daftar',
+            'title' => 'Edit Staff — ' . $staff->name,
+        ])
 
         @if($errors->any())
-            <div style="background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:12px 16px; border-radius:10px; margin-bottom:18px; font-size:14px;">
-                {{ $errors->first() }}
-            </div>
+            <div class="alert-banner alert-banner--error">{{ $errors->first() }}</div>
         @endif
 
-        <div class="chart-card" style="max-width: 600px;">
-            <form action="{{ route('staff.update', $staff->id_staff) }}" method="POST">
+        <div class="chart-card form-card">
+            <form action="{{ route('staff.update', $staff->id_staff) }}" method="POST" id="staff-form">
                 @csrf
                 @method('PUT')
                 <div class="form-row">
-                    <label>Pilih Akun Terdaftar (Username)</label>
-                    <select name="id_user">
+                    <label for="staff-id-user">Pilih Akun Terdaftar (Username)</label>
+                    <select name="id_user" id="staff-id-user" data-popup-title="Akun Pengguna">
                         <option value="">-- Tidak Terhubung ke Akun --</option>
                         @foreach ($users as $user)
                             <option value="{{ $user->id }}" {{ $staff->id_user == $user->id ? 'selected' : '' }}>
-                                {{ $user->name }} ({{ $user->username }})
+                                {{ $user->name }} ({{ $user->username }}) — {{ ucfirst($user->role) }}
                             </option>
                         @endforeach
                     </select>
@@ -39,7 +32,7 @@
                     <input type="text" name="name" required placeholder="Nama lengkap sesuai KTP"
                         value="{{ old('name', $staff->name) }}">
                 </div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                <div class="form-split">
                     <div class="form-row">
                         <label>Jabatan *</label>
                         <input type="text" name="position" required placeholder="Contoh: Admin Legal"
@@ -47,7 +40,7 @@
                     </div>
                     <div class="form-row">
                         <label>Status Kerja *</label>
-                        <select name="work_status">
+                        <select name="work_status" data-popup-title="Status Kerja">
                             <option value="Aktif" {{ old('work_status', $staff->work_status) == 'Aktif' ? 'selected' : '' }}>Aktif</option>
                             <option value="Cuti" {{ old('work_status', $staff->work_status) == 'Cuti' ? 'selected' : '' }}>Cuti</option>
                             <option value="Resign" {{ old('work_status', $staff->work_status) == 'Resign' ? 'selected' : '' }}>Resign</option>
@@ -78,7 +71,7 @@
                     <textarea name="notes" placeholder="Catatan internal tentang staff ini...">{{ old('notes', $staff->notes) }}</textarea>
                 </div>
 
-                <div class="modal-footer" style="margin-top:28px; padding-top:16px; border-top:1px solid #f3f4f6;">
+                <div class="modal-footer" style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid #f3f4f6;">
                     <button type="button" class="btn btn-secondary"
                         onclick="window.location.href='{{ route('staff.index') }}'">Batal</button>
                     <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
@@ -87,3 +80,8 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>window.STAFF_USER_MAP = @json($usersForStaff);</script>
+<script src="{{ asset('js/staff-form.js') }}?v={{ filemtime(public_path('js/staff-form.js')) }}"></script>
+@endpush

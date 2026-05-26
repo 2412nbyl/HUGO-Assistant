@@ -15,6 +15,7 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\Auth\LoginController;
 
 // ── Auth ────────────────────────────────────────────────────────────────────
 
@@ -79,27 +80,7 @@ Route::post('/password/verify', function (Request $request) {
     return back()->with('success_msg', 'Permintaan reset kata sandi telah dikirim ke Admin. Silakan hubungi Admin untuk mendapatkan kata sandi baru Anda.');
 })->name('password.verify');
 
-Route::post('/login', function (Request $request) {
-    $request->validate([
-        'username' => 'required', // This field can be username or email
-        'password' => 'required'
-    ]);
-
-    $loginType = filter_var($request->username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
-
-    $credentials = [
-        $loginType => $request->username,
-        'password' => $request->password
-    ];
-
-    if (Auth::attempt($credentials, $request->boolean('remember'))) {
-        $request->session()->regenerate();
-        $request->session()->flash('just_logged_in', true);
-        return redirect()->route('dashboard');
-    }
-
-    return back()->withErrors(['username' => 'Username/Email atau password salah.'])->withInput();
-});
+Route::post('/login', [LoginController::class, 'login']);
 
 Route::post('/logout', function (Request $request) {
     Auth::logout();
@@ -144,9 +125,9 @@ Route::middleware(['auth'])->group(function () {
     // Birthday helper — accessible to ALL roles so the sidebar works for everyone
     Route::get('/birthdays/today', [BirthdayController::class, 'today']);
 
-    // ── Operational Routes (admin, notaris, staff, freelancer) ──
-    // Admin is included so they can view all case/payment/client data
-    Route::middleware('role:admin,notaris,staff,freelancer')->group(function () {
+    // ── Operational Routes (notaris, staff, freelancer) ──
+    // Admin is excluded so they only have Dashboard, Chat, Account Management, and Staff List
+    Route::middleware('role:notaris,staff,freelancer')->group(function () {
 
         // Cases — calendar MUST come before resource() to avoid route conflict
         Route::get('/cases/calendar', [CaseController::class, 'calendar'])->name('cases.calendar');
@@ -155,8 +136,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cases/{id}/note',   [CaseController::class, 'updateNote'])->name('cases.update-note');
 
         // Document Management
-        Route::post('/cases/{id}/documents', [CaseController::class, 'uploadDocument'])->name('cases.documents.upload');
-        Route::delete('/cases/documents/{id}', [CaseController::class, 'deleteDocument'])->name('cases.documents.delete');
+        // (Moved to a separate shared group below so admin and all roles can access them)
 
         // Payments
         Route::get('/payments', [PaymentController::class, 'index'])->name('payment.index');
@@ -165,13 +145,30 @@ Route::middleware(['auth'])->group(function () {
         // Clients
         Route::resource('clients', ClientController::class);
 
-        // Archives (notaris & staff only)
-        Route::middleware('role:notaris,staff')->group(function () {
-            Route::resource('archives', ArchiveController::class);
-        });
-
         // Exports
         Route::get('/export/cases/{type}', [ExportController::class, 'exportCases'])->name('export.cases');
         Route::get('/export/payments/{format}', [ExportController::class, 'exportPayments'])->name('export.payments');
+    });
+
+    // Finished Case Document (accessible to notaris, staff, freelancer)
+    Route::middleware('role:notaris,staff,freelancer')->group(function () {
+        Route::get('/finished-cases', [\App\Http\Controllers\FinishedCaseController::class, 'index'])->name('finished-cases.index');
+        Route::post('/finished-cases/{id}/open-folder', [\App\Http\Controllers\FinishedCaseController::class, 'openFolder'])->name('finished-cases.open-folder');
+    });
+
+    // Report Archive & Document Archive write routes — restricted to admin,notaris,staff (excluding freelancer)
+    Route::middleware('role:admin,notaris,staff')->group(function () {
+        Route::get('/reports', [DashboardController::class, 'reports'])->name('reports.index');
+        Route::resource('archives', ArchiveController::class)->except(['index', 'show']);
+    });
+
+    // Document Archive read-only & Document Management routes — accessible to admin,notaris,staff,freelancer
+    Route::middleware('role:admin,notaris,staff,freelancer')->group(function () {
+        Route::get('/archives', [ArchiveController::class, 'index'])->name('archives.index');
+        Route::get('/archives/{archive}', [ArchiveController::class, 'show'])->name('archives.show');
+
+        // Document Management
+        Route::post('/cases/{id}/documents', [CaseController::class, 'uploadDocument'])->name('cases.documents.upload');
+        Route::delete('/cases/documents/{id}', [CaseController::class, 'deleteDocument'])->name('cases.documents.delete');
     });
 });

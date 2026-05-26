@@ -10,7 +10,9 @@
 <div id="chat-popup" role="dialog" aria-label="Mini Chat">
     <div class="cpp-header">
         <div class="cpp-header-left">
-            <span class="cpp-icon">💬</span>
+            <span class="cpp-icon">
+                <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
             <div>
                 <div class="cpp-title">Live Chat</div>
                 <div class="cpp-sub" id="cpp-online-txt">Team HUGO</div>

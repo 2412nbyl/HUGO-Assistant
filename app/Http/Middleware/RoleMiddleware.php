@@ -17,7 +17,9 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, string ...$roles): mixed
     {
         $user = $request->user();
-        if (!$user) return redirect('/login');
+        if (!$user) {
+            return redirect()->route('login');
+        }
 
         foreach ($roles as $role) {
             // Deny pattern: "!rolename"

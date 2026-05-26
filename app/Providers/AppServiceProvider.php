@@ -20,5 +20,9 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \Illuminate\Pagination\Paginator::defaultView('vendor.pagination.premium');
+
+        $tz = config('app.timezone', 'Asia/Jakarta');
+        date_default_timezone_set($tz);
+        \Carbon\Carbon::setLocale('id');
     }
 }

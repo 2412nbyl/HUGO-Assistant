@@ -22,7 +22,7 @@
         </div>
         <div>
             <label>Role:</label>
-            <select name="role">
+            <select name="role" data-popup-title="Role / Akses">
                 <option value="admin">Admin</option>
                 <option value="notaris">Notaris</option>
                 <option value="staff">Staff</option>

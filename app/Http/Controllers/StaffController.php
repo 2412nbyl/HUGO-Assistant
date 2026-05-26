@@ -10,14 +10,22 @@ class StaffController extends Controller
 {
     public function index()
     {
-        $staffs = Staff::with('user')->paginate(10);
+        $staffs = Staff::with('user')
+            ->where(function ($q) {
+                $q->whereNull('id_user')
+                    ->orWhereHas('user');
+            })
+            ->latest()
+            ->paginate(10);
+
         return view('staff.index', compact('staffs'));
     }
 
     public function create()
     {
         $users = User::active()->get();
-        return view('staff.create', compact('users'));
+        $usersForStaff = $this->usersForStaffMap($users);
+        return view('staff.create', compact('users', 'usersForStaff'));
     }
 
     public function store(Request $request)
@@ -43,7 +51,8 @@ class StaffController extends Controller
     public function edit(Staff $staff)
     {
         $users = User::active()->get();
-        return view('staff.edit', compact('staff', 'users'));
+        $usersForStaff = $this->usersForStaffMap($users);
+        return view('staff.edit', compact('staff', 'users', 'usersForStaff'));
     }
 
     public function update(Request $request, Staff $staff)
@@ -72,5 +81,28 @@ class StaffController extends Controller
         \App\Models\AuditTrail::log('staffs', $staff->id_staff, 'deleted', $staff->toArray(), null);
         $staff->delete();
         return redirect()->route('staff.index')->with('success', 'Staff berhasil dihapus.');
+    }
+
+    /** @return array<string, array{name: string, email: string, role: string, position: string}> */
+    private function usersForStaffMap($users): array
+    {
+        $rolePositions = [
+            'admin'      => 'Administrator',
+            'notaris'    => 'Notaris',
+            'staff'      => 'Staff Operasional',
+            'freelancer' => 'Freelancer',
+        ];
+
+        $map = [];
+        foreach ($users as $user) {
+            $map[$user->id] = [
+                'name'     => $user->name,
+                'email'    => $user->email,
+                'role'     => $user->role,
+                'position' => $rolePositions[$user->role] ?? ucfirst($user->role),
+            ];
+        }
+
+        return $map;
     }
 }

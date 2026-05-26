@@ -17,7 +17,7 @@
             border-radius: 16px;
             overflow: hidden;
             height: 220px;
-            margin-bottom: 28px;
+            margin-bottom: var(--space-md, 16px);
         }
 
         .hero-bg {
@@ -36,7 +36,7 @@
         .hero-content {
             position: relative;
             z-index: 2;
-            padding: 32px 36px;
+            padding: 24px;
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -60,14 +60,20 @@
         /* Stat Grid */
         .stat-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-bottom: 28px;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: var(--space-sm, 12px);
+            margin-bottom: var(--space-md, 16px);
         }
 
-        @media(max-width:860px) {
+        @media (max-width: 1200px) {
             .stat-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 860px) {
+            .stat-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
 
@@ -91,7 +97,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 12px;
+            margin-bottom: 0;
+            flex-shrink: 0;
         }
 
         .stat-icon svg {
@@ -168,45 +175,31 @@
         }
 
         .chart-wrapper {
-             position: relative;
-             width: 100%;
-             min-height: 200px;
+            position: relative;
+            width: 100%;
         }
 
 
-        /* Bottom Row */
+        /* Bottom Row — full-width activity feed */
         .bottom-row {
             display: grid;
-            grid-template-columns: 1fr 280px;
+            grid-template-columns: 1fr;
             gap: 16px;
         }
 
-        @media(max-width:860px) {
-            .bottom-row {
-                grid-template-columns: 1fr;
-            }
+        .bottom-row .chart-card {
+            width: 100%;
         }
 
-        .klien-card {
-            background: linear-gradient(135deg, #111827, #1f2937);
-            color: #fff;
-            border-radius: 14px;
-            padding: 24px;
+        .activity-feed-list {
             display: flex;
-            align-items: center;
-            gap: 18px;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
         }
 
-        .klien-val {
-            font-size: 36px;
-            font-weight: 700;
-            color: #fff;
-        }
-
-        .klien-label {
-            font-size: 13px;
-            color: #9ca3af;
-            margin-top: 4px;
+        .bottom-row .chart-card {
+            padding: 24px 28px;
         }
 
         .activity-item {
@@ -245,7 +238,206 @@
             margin-left: auto;
             white-space: nowrap;
         }
+
+        /* Activity feed (audit + pembayaran) */
+        .activity-item-feed {
+            align-items: flex-start;
+        }
+
+        .activity-feed-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: #f3f4f6;
+        }
+
+        .activity-feed-icon svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .activity-feed-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .activity-meta {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .activity-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .activity-badges span {
+            padding: 3px 9px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .activity-empty {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+            padding: 8px 4px;
+        }
+
+        /* Line chart: avoid ultra-wide stretch on large screens */
+        .chart-line-wrap {
+            max-width: 920px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Bar + donut: more balanced than global 2fr 1fr */
+        .dashboard-shell .chart-split-grid {
+            grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+            align-items: stretch;
+        }
+
+        @media (max-width: 960px) {
+            .dashboard-shell .chart-split-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Match global .stat-card (flex row): icon + column — avoids number “scrollbar” / squish */
+        .dashboard-shell .stat-grid > .stat-card {
+            align-items: center;
+        }
+
+        .dashboard-shell .stat-grid > .stat-card > .stat-body {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .dashboard-shell .stat-grid > .stat-card .stat-value {
+            overflow: visible !important;
+            overflow-x: visible !important;
+            word-break: normal;
+        }
+
+        /* Charts: wrappers give width; height follows Chart.js aspectRatio */
+        .dashboard-shell .chart-wrapper-line {
+            position: relative;
+            width: 100%;
+            min-height: 200px;
+            height: auto;
+        }
+
+        .dashboard-shell .chart-wrapper-bar {
+            position: relative;
+            width: 100%;
+            min-height: 180px;
+            height: auto;
+        }
+
+        .dashboard-shell .chart-wrapper-donut {
+            position: relative;
+            width: 100%;
+            min-height: 200px;
+            height: auto;
+            max-height: none;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-shell {
+                margin: 0 -4px;
+                width: calc(100% + 8px);
+                max-width: none;
+            }
+
+            .hero-section {
+                height: 160px;
+                margin-bottom: 16px;
+                border-radius: 12px;
+            }
+
+            .hero-content {
+                padding: 16px;
+            }
+
+            .hero-content h2 {
+                font-size: 17px;
+            }
+
+            .hero-content p {
+                font-size: 12px;
+                line-height: 1.5;
+            }
+
+            .stat-grid {
+                gap: 10px;
+                margin-bottom: 16px;
+            }
+
+            .dashboard-shell .stat-grid > .stat-card {
+                padding: 14px 12px;
+                border-radius: 12px;
+            }
+
+            .dashboard-shell .stat-grid > .stat-card .stat-icon {
+                width: 40px;
+                height: 40px;
+                margin-bottom: 0;
+            }
+
+            .dashboard-shell .stat-grid > .stat-card .stat-value {
+                font-size: clamp(22px, 6.5vw, 28px);
+            }
+
+            .dashboard-shell .stat-grid > .stat-card .stat-label {
+                font-size: 11px;
+            }
+
+            .dashboard-shell .chart-card {
+                padding: 14px 12px;
+                margin-bottom: 12px !important;
+                border-radius: 12px;
+            }
+
+            .dashboard-shell .chart-card-header {
+                margin-bottom: 10px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .dashboard-shell .chart-wrapper-line {
+                min-height: 180px;
+            }
+
+            .dashboard-shell .chart-wrapper-bar {
+                min-height: 160px;
+            }
+
+            .dashboard-shell .chart-wrapper-donut {
+                min-height: 180px;
+            }
+
+            .dashboard-shell .bottom-row {
+                gap: 12px;
+            }
+
+            .dashboard-shell .activity-feed-list .activity-item-feed {
+                padding: 12px 14px;
+            }
+        }
     </style>
+
+    <div class="dashboard-shell">
 
     <!-- HERO -->
     <div class="hero-section">
@@ -262,7 +454,7 @@
     <div style="position:relative;">
         <!-- Skeleton for stat cards -->
         <div id="skeleton-stats" class="stat-grid-skeleton" style="margin-bottom:28px;">
-            @for($i=0;$i<4;$i++)
+            @for($i=0;$i<5;$i++)
             <div class="skeleton-card">
                 <div class="skeleton skeleton-avatar" style="width:40px;height:40px;border-radius:10px;margin-bottom:12px;"></div>
                 <div class="skeleton skeleton-line" style="width:50%;height:28px;margin-bottom:8px;"></div>
@@ -274,13 +466,22 @@
         <div id="real-stats" style="display:none;">
         <div class="stat-grid">
         <div class="stat-card">
+            <div class="stat-icon" style="background:#e0e7ff;"><svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <div class="stat-body">
+                <div class="stat-value">{{ $totalClients }}</div>
+                <div class="stat-label">Total Klien</div>
+            </div>
+        </div>
+        <div class="stat-card">
             <div class="stat-icon" style="background:#fef3c7;"><svg viewBox="0 0 24 24" fill="none" stroke="#d97706"
                     stroke-width="2">
                     <path d="M14 2H6a2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                 </svg></div>
-            <div class="stat-value">{{ $totalCases }}</div>
-            <div class="stat-label">Total Kasus</div>
+            <div class="stat-body">
+                <div class="stat-value">{{ $totalCases }}</div>
+                <div class="stat-label">Total Kasus</div>
+            </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon" style="background:#dbeafe;"><svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
@@ -288,16 +489,20 @@
                     <rect x="2" y="7" width="20" height="14" rx="2" />
                     <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
                 </svg></div>
-            <div class="stat-value">{{ $ptCases }}</div>
-            <div class="stat-label">Kasus PT</div>
+            <div class="stat-body">
+                <div class="stat-value">{{ $ptCases }}</div>
+                <div class="stat-label">Kasus PT</div>
+            </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon" style="background:#dcfce7;"><svg viewBox="0 0 24 24" fill="none" stroke="#22c55e"
                     stroke-width="2">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                 </svg></div>
-            <div class="stat-value">{{ $cvCases }}</div>
-            <div class="stat-label">Kasus CV</div>
+            <div class="stat-body">
+                <div class="stat-value">{{ $cvCases }}</div>
+                <div class="stat-label">Kasus CV</div>
+            </div>
         </div>
         <div class="stat-card">
             <div class="stat-icon" style="background:#fce7f3;"><svg viewBox="0 0 24 24" fill="none" stroke="#ec4899"
@@ -305,12 +510,13 @@
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                 </svg></div>
-            <div class="stat-value">{{ $pribadiCases }}</div>
-            <div class="stat-label">Kasus Pribadi</div>
+            <div class="stat-body">
+                <div class="stat-value">{{ $pribadiCases }}</div>
+                <div class="stat-label">Kasus Pribadi</div>
+            </div>
         </div>
-    </div>
-
         </div><!-- /stat-grid -->
+
         </div><!-- /real-stats -->
     </div><!-- /stat wrapper -->
 
@@ -339,8 +545,8 @@
                             onclick="setPillActive(this,'year-pills'); updateLineChart(10)">10 Tahun</button>
                     </div>
                 </div>
-                <div class="chart-wrapper">
-                    <canvas id="lineChart" height="100"></canvas>
+                <div class="chart-wrapper chart-wrapper-line chart-line-wrap">
+                    <canvas id="lineChart"></canvas>
                 </div>
             </div>
 
@@ -350,16 +556,16 @@
                     <div class="chart-card-header">
                         <h3>Aktivitas Bulanan</h3>
                     </div>
-                    <div class="chart-wrapper">
-                        <canvas id="barChart" height="180"></canvas>
+                    <div class="chart-wrapper chart-wrapper-bar">
+                        <canvas id="barChart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
                     <div class="chart-card-header">
                         <h3>Status Kasus</h3>
                     </div>
-                    <div class="chart-wrapper" style="display:flex; flex-direction:column; align-items:center;">
-                        <canvas id="donutChart" height="200"></canvas>
+                    <div class="chart-wrapper chart-wrapper-donut" style="display:flex; flex-direction:column; align-items:center;">
+                        <canvas id="donutChart"></canvas>
                         <div id="donut-legend" style="width:100%; display:flex;flex-direction:column;gap:8px;margin-top:14px;"></div>
                     </div>
                 </div>
@@ -374,33 +580,56 @@
             <div class="chart-card-header">
                 <h3>Aktivitas Terbaru</h3>
             </div>
-            @foreach ($recentCases as $case)
+            <div class="activity-feed-list">
+            @forelse ($activityFeed as $item)
                 @php
-                    $colors = ['selesai' => '#22c55e', 'proses' => '#f59e0b', 'tertunda' => '#ef4444'];
-                    $c = $colors[$case->status] ?? '#9ca3af';
+                    $src = $item['icon'] ?? 'case';
+                    $iconBg = match ($src) {
+                        'payment' => '#fff7ed',
+                        'user' => '#e0e7ff',
+                        'staff' => '#fce7f3',
+                        default => '#eff6ff',
+                    };
+                    $iconStroke = match ($src) {
+                        'payment' => '#ea580c',
+                        'user' => '#4338ca',
+                        'staff' => '#be185d',
+                        default => '#2563eb',
+                    };
                 @endphp
-                <div class="activity-item">
-                    <span class="activity-dot" style="background:{{ $c }};"></span>
-                    <div style="flex:1;min-width:0;">
-                        <div class="activity-name">{{ $case->client_name }}</div>
-                        <div class="activity-sub">
-                            {{ $case->type }} • {{ $case->deadline?->format('d/m/Y') }}
-                            @if($case->phone) • <span style="color:#6b7280;">+62 {{ ltrim($case->phone, '0') }}</span> @endif
-                        </div>
+                <div class="activity-item activity-item-feed">
+                    <div class="activity-feed-icon" style="background:{{ $iconBg }};">
+                        @if($src === 'payment')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="{{ $iconStroke }}" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                        @elseif($src === 'user')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="{{ $iconStroke }}" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        @elseif($src === 'staff')
+                            <svg viewBox="0 0 24 24" fill="none" stroke="{{ $iconStroke }}" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        @else
+                            <svg viewBox="0 0 24 24" fill="none" stroke="{{ $iconStroke }}" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        @endif
                     </div>
-                    <span class="activity-badge"
-                        style="background:{{ $c }}22;color:{{ $c }};">{{ ucfirst($case->status) }}</span>
+                    <div class="activity-feed-body">
+                        <div class="activity-name">{{ $item['title'] }}</div>
+                        <div class="activity-sub">{{ $item['detail'] }}</div>
+                        <div class="activity-meta">{{ $item['meta'] }}</div>
+                        @if(!empty($item['badges']))
+                            <div class="activity-badges">
+                                @foreach ($item['badges'] as $b)
+                                    <span style="background:{{ $b['bg'] }};color:{{ $b['color'] }};">{{ $b['text'] }}</span>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
                 </div>
-            @endforeach
-        </div>
-        <div class="klien-card">
-            <div style="font-size:36px;"></div>
-            <div>
-                <div class="klien-val">{{ $totalClients }}</div>
-                <div class="klien-label">Total Klien</div>
+            @empty
+                <p class="activity-empty">Belum ada aktivitas tercatat.</p>
+            @endforelse
             </div>
         </div>
     </div>
+
+    </div><!-- /dashboard-shell -->
 
     @push('scripts')
         <script>
@@ -490,6 +719,9 @@
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2.2,
+                        layout: { padding: { top: 6, bottom: 2, left: 0, right: 4 } },
                         plugins: {
                             legend: {
                                 display: false
@@ -559,6 +791,9 @@
                 options: {
                     cutout: '68%',
                     responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1.15,
+                    layout: { padding: { top: 4, bottom: 4, left: 4, right: 4 } },
                     plugins: {
                         legend: {
                             display: false
@@ -610,6 +845,9 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1.85,
+                    layout: { padding: { top: 4, bottom: 0, left: 0, right: 0 } },
                     plugins: { legend: { display: false } },
                     scales: {
                         y: { beginAtZero: true, ticks: { precision: 0, font: { family: 'Inter', size:11 }, color: '#374151' }, grid: { color: '#f3f4f6' } },

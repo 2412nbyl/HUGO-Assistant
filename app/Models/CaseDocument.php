@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class CaseDocument extends Model
 {
-    use \App\Traits\GeneratesCustomIds;
+    use HasFactory, \App\Traits\GeneratesCustomIds;
 
     protected $primaryKey = 'id_dok';
     public $incrementing = false;
@@ -24,5 +25,10 @@ class CaseDocument extends Model
     {
         return $this->belongsTo(User::class, 'uploaded_by', 'id');
     }
-}
 
+    public function archive()
+    {
+        return $this->belongsTo(\App\Models\Archive::class, 'id_arsip', 'id_arsip');
+    }
+
+}

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="@yield('html-class', '')">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>HUGO - Assistant</title>
     <link rel="icon" href="{{ url('/favicon.png') }}?v={{ time() }}" type="image/png">
     <link rel="shortcut icon" href="{{ url('/favicon.ico') }}?v={{ time() }}">
@@ -13,17 +13,8 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     @stack('styles')
     <style>
-        /* ── Mobile UI Layering Fixes ── */
         .sidebar { z-index: 2000 !important; }
         #sidebar-overlay { z-index: 1900 !important; }
-        #mobile-bottom-nav { z-index: 1000 !important; }
-        .content-area { z-index: 10 !important; }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                box-shadow: 4px 0 24px rgba(0,0,0,0.2) !important;
-            }
-        }
     </style>
 </head>
 
@@ -39,8 +30,8 @@
             <div class="main-content">
                 <!-- Global Skeleton Loader (Every menu) -->
                 <div id="global-skeleton" class="content-skeleton show">
-                    <div class="skeleton" style="width: 30%; height: 24px; margin-bottom: 20px;"></div>
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px;">
+                    <div class="skeleton" style="width: 30%; height: 24px; margin-bottom: 12px;"></div>
+                    <div class="stat-grid-skeleton" style="margin-bottom: 16px;">
                         @for($i=0; $i<4; $i++)
                             <div class="skeleton-card">
                                 <div class="skeleton skeleton-avatar" style="width: 40px; height: 40px; margin-bottom: 12px;"></div>
@@ -52,8 +43,10 @@
                     <div class="skeleton" style="width: 100%; height: 300px; border-radius: 14px;"></div>
                 </div>
 
-                <div id="main-content-yield" style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
-                    @yield('content')
+                <div id="main-content-yield" class="page-yield" style="visibility: hidden; opacity: 0; transition: opacity 0.3s ease;">
+                    <div class="page-container">
+                        @yield('content')
+                    </div>
                 </div>
             </div>
         </div>

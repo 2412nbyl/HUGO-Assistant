@@ -2,15 +2,19 @@
 @section('page-title', 'Tambah Klien')
 @section('content')
 <div class="animate-slide-up">
-    <div style="margin-bottom: 22px;">
-        <a href="{{ route('clients.index') }}" style="display:inline-flex; align-items:center; gap:6px; color:var(--text-muted); text-decoration:none; font-size:13.5px; margin-bottom:12px;">
-            <svg viewBox="0 0 24 24" style="width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2.5;"><polyline points="15 18 9 12 15 6"/></svg>
-            Kembali ke Daftar
-        </a>
-        <h2 style="font-size: 20px; font-weight: 700; color: #111827;">Tambah Klien Baru</h2>
-    </div>
+    @include('partials.page-header', [
+        'backUrl' => route('clients.index'),
+        'backLabel' => 'Kembali ke Daftar',
+        'title' => 'Tambah Klien Baru',
+    ])
 
-    <div class="chart-card" style="max-width: 600px;">
+    @if($errors->any())
+        <div style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px 16px; border-radius:10px; margin-bottom:16px; font-size:14px;">
+            <strong>Gagal:</strong> {{ $errors->first() }}
+        </div>
+    @endif
+
+    <div class="chart-card form-card">
         <form action="{{ route('clients.store') }}" method="POST">
             @csrf
             <div class="form-row">

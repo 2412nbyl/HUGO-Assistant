@@ -23,7 +23,7 @@
         birthdayUrl: d.birthdayUrl|| '',
         avatarUrl:   d.avatarUrl  || '',
         passwordUrl: d.passwordUrl|| '',
-        userId:      parseInt(d.userId) || 0,
+        userId:      d.userId || '',
         isChatPage:  d.isChat === '1',
         baseUrl:     d.baseUrl    || '',
     };
@@ -32,6 +32,9 @@ function esc(t){if(!t)return'';return String(t).replace(/[&<>"']/g,function(s){r
 </script>
 
 <script src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
+<script src="{{ asset('js/list-filters.js') }}?v={{ filemtime(public_path('js/list-filters.js')) }}"></script>
+<script src="{{ asset('js/list-search.js') }}?v={{ filemtime(public_path('js/list-search.js')) }}"></script>
+<script src="{{ asset('js/popup-select.js') }}?v={{ filemtime(public_path('js/popup-select.js')) }}"></script>
 
 <script>
 /* ─── Skeleton / Loader ─────────────────────────────────────────────── */
@@ -60,10 +63,10 @@ function esc(t){if(!t)return'';return String(t).replace(/[&<>"']/g,function(s){r
 function showToast(msg, type, title){
     var c=document.getElementById('toast-container'); if(!c) return;
     var cfg={
-        success:{ icon:'✅', bg:'#14532d', border:'#22c55e', title:'Berhasil' },
-        danger: { icon:'🚫', bg:'#450a0a', border:'#ef4444', title:'Gagal'    },
-        warning:{ icon:'⚡', bg:'#451a03', border:'#f59e0b', title:'Peringatan'},
-        info:   { icon:'💬', bg:'#0c1a3a', border:'#3b82f6', title:'Info'     }
+        success:{ icon:'✔', bg:'#14532d', border:'#22c55e', title:'Berhasil' },
+        danger: { icon:'✘', bg:'#450a0a', border:'#ef4444', title:'Gagal'    },
+        warning:{ icon:'⚠', bg:'#451a03', border:'#f59e0b', title:'Peringatan'},
+        info:   { icon:'ℹ', bg:'#0c1a3a', border:'#3b82f6', title:'Info'     }
     };
     var s=cfg[type]||cfg.info;
     var t=document.createElement('div');
@@ -84,7 +87,7 @@ function showChatToast(name, message, isPrivate){
     var t=document.createElement('div'); t.className='chat-toast';
     t.innerHTML='<div class="chat-toast-avatar">'+esc(name).charAt(0).toUpperCase()+'</div>'
         +'<div class="chat-toast-body">'
-        +  '<div class="chat-toast-name">'+(isPrivate?'🔒 Pesan Pribadi dari ':'💬 ')+esc(name)+'</div>'
+        +  '<div class="chat-toast-name">'+(isPrivate?'[Pribadi] Pesan dari ':'')+esc(name)+'</div>'
         +  '<div class="chat-toast-msg">'+esc(message)+'</div>'
         +'</div>'
         +'<div style="font-size:10px;color:#6b7280;flex-shrink:0;align-self:flex-start;margin-top:2px;">CHAT</div>';
@@ -113,6 +116,16 @@ function closeConfirm(){ var o=document.getElementById('confirm-modal'); if(o) o
     if(!window.HUGO_CONFIG) return;
 
     function getReadId(){ return parseInt(localStorage.getItem('hugo_read_id') || '0'); }
+    function getNotifiedId(){
+        var id = parseInt(localStorage.getItem('hugo_notified_id') || '0');
+        if (id === 0) {
+            id = getReadId();
+        }
+        return id;
+    }
+    function setNotifiedId(id){
+        localStorage.setItem('hugo_notified_id', id);
+    }
 
     // If we're ON the chat page, mark everything as read immediately
     if(window.HUGO_CONFIG.isChatPage){
@@ -129,30 +142,35 @@ function closeConfirm(){ var o=document.getElementById('confirm-modal'); if(o) o
 
     function poll(){
         if(document.hidden) return;
-        var rId = getReadId();
-        fetch(window.HUGO_CONFIG.chatPollUrl+'?last_id='+rId+'&badge=1', {headers:{'ngrok-skip-browser-warning':'true'}})
+        var notifyId = getNotifiedId();
+        var reads = localStorage.getItem('hugo_chat_reads') || '{}';
+        
+        fetch(window.HUGO_CONFIG.chatPollUrl+'?last_id='+notifyId+'&badge=1&reads='+encodeURIComponent(reads), {headers:{'ngrok-skip-browser-warning':'true'}})
         .then(function(r){ return r.json(); })
         .then(function(data){
             var unread=data.unread||0;
             var navB=document.getElementById('chat-nav-badge');
-            var topB=document.getElementById('topbar-chat-badge');  // new topbar badge
+            var topB=document.getElementById('topbar-chat-badge');
             var mobB=document.getElementById('mob-nav-badge-chat');
             
             if(navB){ if(unread>0){navB.textContent=unread>99?'99+':unread;navB.classList.add('show');}else{navB.classList.remove('show');} }
-            if(topB){ if(unread>0){topB.textContent=unread>99?'99+':unread;topB.style.display='flex';}else{topB.style.display='none';} }
+            if(topB){ if(unread>0){topB.textContent=unread>99?'99+':unread;topB.classList.add('show');}else{topB.classList.remove('show');} }
             if(mobB){ if(unread>0){mobB.textContent=unread>99?'99+':unread;mobB.style.display='flex';}else{mobB.style.display='none';} }
             
             if(data.latest&&data.latest.length){
-                var seen=JSON.parse(localStorage.getItem('hugo_seen')||'[]');
+                var maxId = notifyId;
                 data.latest.forEach(function(m){ 
-                    // Only show toast if message ID > our last read ID AND not in seen list
-                    if(m.id > rId && seen.indexOf(m.id)===-1){ 
+                    if(m.id > notifyId){ 
                         showChatToast(m.name,m.message,m.is_private); 
-                        seen.push(m.id); 
+                        if (m.id > maxId) maxId = m.id;
                     } 
                 });
-                if(seen.length>120) seen=seen.slice(-120);
-                localStorage.setItem('hugo_seen',JSON.stringify(seen));
+                if (maxId > notifyId) {
+                    setNotifiedId(maxId);
+                }
+            }
+            if (data.last_id && data.last_id > notifyId) {
+                setNotifiedId(data.last_id);
             }
         }).catch(function(){});
     }
@@ -186,35 +204,58 @@ function closeConfirm(){ var o=document.getElementById('confirm-modal'); if(o) o
     (function(){
         if(!window.HUGO_CONFIG) return;
 
-        fetch(window.HUGO_CONFIG.birthdayUrl, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json','ngrok-skip-browser-warning':'true'} })
-        .then(function(r){ return r.ok ? r.json() : []; })
-        .then(function(data){
-            if(!data||!data.length) return;
-            var badge=document.getElementById('case-birthday-badge');
-            if(badge) badge.style.display='flex';
-            
-            // Check snooze
-            const ignoreUntil = localStorage.getItem('hugo_bday_ignore_until');
-            if (ignoreUntil && new Date(ignoreUntil) > new Date()) return;
+        var bdayPromise = fetch(window.HUGO_CONFIG.birthdayUrl, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json','ngrok-skip-browser-warning':'true'} })
+            .then(function(r){ return r.ok ? r.json() : []; });
 
-            // Show modal once per "login session" if on dashboard
-            if(!sessionStorage.getItem('hugo_bday_shown_today')){
-                if (!window.location.pathname.includes('/dashboard')) return;
+        function checkAndShow() {
+            bdayPromise.then(function(data){
+                if(!data||!data.length) return;
+                var badge=document.getElementById('case-birthday-badge');
+                if(badge) badge.style.display='flex';
+                
+                // Check snooze
+                const ignoreUntil = localStorage.getItem('hugo_bday_ignore_until');
+                if (ignoreUntil && new Date(ignoreUntil) > new Date()) return;
 
-                var list=document.getElementById('birthday-list'); if(!list) return;
-                list.innerHTML=data.map(function(b){
-                    return '<div class="birthday-item">'
-                        +'<div class="birthday-avatar">'+esc(b.client_name).charAt(0).toUpperCase()+'</div>'
-                        +'<div>'
-                        +  '<div class="birthday-name">'+(b.is_today?'🎂 ':'')+esc(b.client_name)+'</div>'
-                    +  '<div class="birthday-days">'+(b.is_today ? '🎉 Hari ini ulang tahun!' : '⏰ '+b.days_until+' hari lagi — '+b.birth_date)+'</div>'
-                    +'</div></div>';
-                }).join('');
-                var modal=document.getElementById('birthday-modal');
-                if(modal) modal.classList.add('open');
-                sessionStorage.setItem('hugo_bday_shown_today','1');
-            }
-        }).catch(function(){});
+                // Show modal once per "login session" if on dashboard
+                if(!sessionStorage.getItem('hugo_bday_shown_today')){
+                    if (!window.location.pathname.includes('/dashboard')) return;
+
+                    var list=document.getElementById('birthday-list'); if(!list) return;
+                    list.innerHTML=data.map(function(b){
+                        var isToday = b.is_today;
+                        var crownHtml = isToday ? '<span class="bday-crown">👑</span>' : '';
+                        var tagClass = isToday ? 'bday-tag today' : 'bday-tag upcoming';
+                        var tagText = isToday ? 'Hari Ini 🎂' : b.days_until + ' hari lagi 🎈';
+                        var avatarClass = isToday ? 'bday-avatar is-today' : 'bday-avatar';
+
+                        return '<div class="bday-card-item">'
+                            + '<div class="' + avatarClass + '">'
+                            +   crownHtml
+                            +   esc(b.client_name).charAt(0).toUpperCase()
+                            + '</div>'
+                            + '<div class="bday-info">'
+                            +   '<div class="bday-client-name">' + esc(b.client_name) + '</div>'
+                            +   '<div class="bday-case-name">' + esc(b.case_name || 'Kasus') + '</div>'
+                            + '</div>'
+                            + '<div class="bday-badge-wrap">'
+                            +   '<span class="' + tagClass + '">' + tagText + '</span>'
+                            +   '<span class="bday-date">' + esc(b.birth_date) + '</span>'
+                            + '</div>'
+                            + '</div>';
+                    }).join('');
+                    var modal=document.getElementById('birthday-modal');
+                    if(modal) modal.classList.add('open');
+                    sessionStorage.setItem('hugo_bday_shown_today','1');
+                }
+            }).catch(function(){});
+        }
+
+        if (document.readyState === 'complete') {
+            checkAndShow();
+        } else {
+            window.addEventListener('load', checkAndShow);
+        }
     })();
 
 

@@ -5,8 +5,9 @@
     <style>
         .user-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
             gap: 14px;
+            width: 100%;
         }
 
         .user-card {
@@ -119,7 +120,7 @@
         @endpush
     @endif
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+    <div class="page-header-row">
         <span style="font-size:13.5px;color:var(--text-muted);">{{ $users->count() }} pengguna terdaftar</span>
         <button class="btn btn-primary" onclick="document.getElementById('add-user-modal').classList.add('open')">
             <svg viewBox="0 0 24 24">
@@ -268,7 +269,7 @@
                     </div>
                     <div class="form-row">
                         <label>Role / Akses *</label>
-                        <select name="role" required>
+                        <select name="role" data-popup-title="Role / Akses" required>
                             <option value="notaris">Notaris (Full Akses Kasus)</option>
                             <option value="staff">Staff (Input & Edit)</option>
                             <option value="freelancer">Freelancer (Terbatas)</option>
@@ -325,7 +326,7 @@
                     </div>
                     <div class="form-row">
                         <label>Role / Akses *</label>
-                        <select name="role" id="edit-role" required>
+                        <select name="role" id="edit-role" data-popup-title="Role / Akses" required>
                             <option value="notaris">Notaris (Full Akses Kasus)</option>
                             <option value="staff">Staff (Input & Edit)</option>
                             <option value="freelancer">Freelancer (Terbatas)</option>

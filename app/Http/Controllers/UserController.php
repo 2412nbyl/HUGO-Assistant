@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Staff;
+use App\Models\ChatMessage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -69,19 +71,36 @@ class UserController extends Controller
 
     public function manage()
     {
-        if (!in_array(auth()->user()->role, ['admin','notaris'])) abort(403);
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
+        // Active + deactivated (soft-deleted) accounts only — permanently deleted users are excluded
         $users = User::withTrashed()->latest()->get();
+
         return view('users.manage', compact('users'));
     }
 
     public function destroy(Request $request, $id)
     {
-        if (auth()->user()->role !== 'admin') abort(403);
-        $user = User::findOrFail($id);
-        if ($user->id === auth()->id()) return back()->with('message','Tidak dapat menghapus diri sendiri');
+        if (auth()->user()->role !== 'admin') {
+            abort(403);
+        }
+
+        $user = User::withTrashed()->findOrFail($id);
+
+        if ($user->id === auth()->id()) {
+            return back()->with('message', 'Tidak dapat menghapus diri sendiri');
+        }
+
         \App\Models\AuditTrail::log('users', $user->id, 'deleted', ['name' => $user->name, 'role' => $user->role], null);
-        $user->delete(); // hard delete
-        return back()->with('message','Akun berhasil dihapus');
+
+        Staff::where('id_user', $user->id)->delete();
+        ChatMessage::where('sender_id', $user->id)->orWhere('receiver_id', $user->id)->delete();
+
+        $user->forceDelete();
+
+        return back()->with('message', 'Akun berhasil dihapus permanen');
     }
 
     /** Soft deactivate: user cannot login, data preserved */

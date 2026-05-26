@@ -7,9 +7,21 @@ use Illuminate\Http\Request;
 
 class ClientController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $clients = Client::latest()->paginate(10);
+        $query = Client::withCount('cases')->latest();
+
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('name', 'like', "%{$s}%")
+                  ->orWhere('phone', 'like', "%{$s}%")
+                  ->orWhere('address', 'like', "%{$s}%")
+                  ->orWhere('id_klien', 'like', "%{$s}%");
+            });
+        }
+
+        $clients = $query->paginate(10)->withQueryString();
         return view('clients.index', compact('clients'));
     }
 

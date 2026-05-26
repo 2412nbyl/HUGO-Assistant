@@ -111,13 +111,78 @@ class ChatController extends Controller
         $messages = $query->orderBy('id', 'asc')->get();
         $lastIdNew = $messages->isNotEmpty() ? $messages->last()->id : $lastId;
 
+        if ($request->boolean('contact_badges')) {
+            $reads = $request->input('reads', []);
+            if (is_string($reads)) {
+                $decoded = json_decode($reads, true);
+                $reads = is_array($decoded) ? $decoded : [];
+            }
+
+            $globalRead = (int) ($reads['global'] ?? 0);
+            $badges = [
+                'global' => ChatMessage::where('id', '>', $globalRead)
+                    ->whereNull('receiver_id')
+                    ->where('sender_id', '!=', $userId)
+                    ->whereNotIn('type', ['request', 'approval'])
+                    ->count(),
+            ];
+
+            $contactIds = ChatMessage::query()
+                ->where(function ($q) use ($userId) {
+                    $q->where('sender_id', $userId)->orWhere('receiver_id', $userId);
+                })
+                ->whereNotNull('receiver_id')
+                ->get()
+                ->flatMap(fn ($m) => [$m->sender_id, $m->receiver_id])
+                ->filter(fn ($id) => $id && (int) $id !== (int) $userId)
+                ->unique()
+                ->values();
+
+            foreach ($contactIds as $contactId) {
+                $contactRead = (int) ($reads[(string) $contactId] ?? 0);
+                $badges[(string) $contactId] = ChatMessage::where('id', '>', $contactRead)
+                    ->where('sender_id', $contactId)
+                    ->where('receiver_id', $userId)
+                    ->whereIn('type', ['message', 'approval'])
+                    ->count();
+            }
+
+            return response()->json(['badges' => $badges]);
+        }
+
         if ($isBadge) {
-            // Count unread messages meant for the user (global or private)
-            $unreadCount = ChatMessage::where('id', '>', $lastId)
+            $reads = $request->input('reads', []);
+            if (is_string($reads)) {
+                $decoded = json_decode($reads, true);
+                $reads = is_array($decoded) ? $decoded : [];
+            }
+
+            // Unread global count
+            $globalRead = (int) ($reads['global'] ?? 0);
+            $unreadGlobal = ChatMessage::where('id', '>', $globalRead)
+                ->whereNull('receiver_id')
                 ->where('sender_id', '!=', $userId)
-                ->where(function($q) use ($userId) {
-                    $q->whereNull('receiver_id')->orWhere('receiver_id', $userId);
-                })->count();
+                ->whereNotIn('type', ['request', 'approval'])
+                ->count();
+
+            // Unread private count
+            $unreadPrivate = 0;
+            $senders = ChatMessage::where('receiver_id', $userId)
+                ->where('sender_id', '!=', $userId)
+                ->select('sender_id')
+                ->groupBy('sender_id')
+                ->get()
+                ->pluck('sender_id');
+
+            foreach ($senders as $senderId) {
+                $lastReadForSender = (int) ($reads[(string) $senderId] ?? 0);
+                $unreadPrivate += ChatMessage::where('receiver_id', $userId)
+                    ->where('sender_id', $senderId)
+                    ->where('id', '>', $lastReadForSender)
+                    ->count();
+            }
+
+            $unreadCount = $unreadGlobal + $unreadPrivate;
 
             // Return latest messages for global popup notifications
             $latestMessages = ChatMessage::with('sender')
@@ -134,7 +199,7 @@ class ChatController extends Controller
 
             return response()->json([
                 'unread' => $unreadCount,
-                'last_id' => $lastIdNew, // this might need adjusting if last_id is tracked differently on client
+                'last_id' => $lastIdNew,
                 'latest' => $latestMessages
             ]);
         }
@@ -166,11 +231,17 @@ class ChatController extends Controller
             return response()->json(['success' => false, 'message' => 'Data user tidak ditemukan'], 422);
         }
 
-        // Generate temp password
-        $tempPass = 'HUGO-' . strtoupper(\Illuminate\Support\Str::random(6));
+        $newPass = $request->input('password');
+        if (!$newPass) {
+            return response()->json(['success' => false, 'message' => 'Kata sandi baru diperlukan'], 422);
+        }
+        if (strlen($newPass) < 6) {
+            return response()->json(['success' => false, 'message' => 'Sandi minimal 6 karakter'], 422);
+        }
+
         $user = User::find($userId);
         if ($user) {
-            $user->password = Hash::make($tempPass);
+            $user->password = Hash::make($newPass);
             $user->save();
         }
 
@@ -182,12 +253,12 @@ class ChatController extends Controller
         ChatMessage::create([
             'sender_id'   => auth()->id(),
             'receiver_id' => $userId,
-            'message'     => "✅ Permintaan reset sandi untuk @{$user->username} telah disetujui oleh " . auth()->user()->name . ". Sandi sementara: {$tempPass}",
+            'message'     => "✅ Permintaan reset sandi untuk @{$user->username} telah disetujui oleh " . auth()->user()->name . ". Sandi baru: {$newPass}",
             'type'        => 'approval',
-            'meta'        => ['for_user_id' => $userId, 'temp_pass' => $tempPass],
+            'meta'        => ['for_user_id' => $userId, 'temp_pass' => $newPass],
         ]);
 
-        return response()->json(['success' => true, 'temp_password' => $tempPass]);
+        return response()->json(['success' => true, 'temp_password' => $newPass]);
     }
 
     private function formatMessage(ChatMessage $msg): array

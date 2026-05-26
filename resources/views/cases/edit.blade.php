@@ -31,7 +31,7 @@
                         </div>
                         <div class="form-row">
                             <label>Tipe Kasus</label>
-                            <select name="type">
+                            <select name="type" data-popup-title="Tipe Kasus">
                                 <option value="PT" {{ $case->type == 'PT' ? 'selected' : '' }}>PT</option>
                                 <option value="CV" {{ $case->type == 'CV' ? 'selected' : '' }}>CV</option>
                                 <option value="Pribadi" {{ $case->type == 'Pribadi' ? 'selected' : '' }}>Pribadi</option>
@@ -59,7 +59,7 @@
                         </div>
                         <div class="form-row">
                             <label>Status Progress</label>
-                            <select name="status" class="pill" style="width:100%; height:42px; padding:0 12px; border-radius:10px; appearance:auto;">
+                            <select name="status" data-popup-title="Status Progress" class="pill" style="width:100%; height:42px; padding:0 12px; border-radius:10px; appearance:auto;">
                                 <option value="proses" {{ $case->status == 'proses' ? 'selected' : '' }}>Proses</option>
                                 <option value="tertunda" {{ $case->status == 'tertunda' ? 'selected' : '' }}>Tertunda</option>
                                 <option value="selesai" {{ $case->status == 'selesai' ? 'selected' : '' }}>Selesai</option>

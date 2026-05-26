@@ -1,8 +1,17 @@
 @extends('layout')
+@section('html-class', 'is-chat-shell')
 @section('page-title', 'Chat')
-@section('body-class', 'chat-page')
+@php
+    $chatConversationOpen = $receiverId || request()->query('global');
+    $chatBodyClass = 'chat-page ' . ($chatConversationOpen ? 'wa-show-chat' : 'wa-show-list');
+    if ($receiverId) {
+        $chatBodyClass .= ' chat-dm';
+    }
+@endphp
+@section('body-class', $chatBodyClass)
 
 @push('styles')
+    <link rel="stylesheet" href="{{ asset('css/chat-whatsapp.css') }}?v={{ filemtime(public_path('css/chat-whatsapp.css')) }}">
     <style>
         /* ── Chat Page wrapper takes full remaining height ── */
         .chat-page-wrap {
@@ -13,21 +22,30 @@
             background: #f0f2f5;
             overflow: hidden;
             border-radius: 14px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
             border: 1px solid #e5e7eb;
             position: relative;
+            isolation: isolate;
         }
 
         .chat-sidebar {
-            width: 280px;
+            width: 320px;
+            max-width: min(320px, 92vw);
             background: #fff;
             border-right: 1px solid #e5e7eb;
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
-            overflow-y: auto;
+            min-height: 0;
+            overflow: hidden;
         }
 
+        #chat-contact-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .chat-sidebar-header {
@@ -46,35 +64,75 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px 20px;
+            padding: 13px 20px;
             cursor: pointer;
             border-bottom: 1px solid #f3f4f6;
             transition: background 0.15s;
             text-decoration: none;
             color: inherit;
+            position: relative;
         }
 
-        .user-list-item:hover, .user-list-item.active {
-            background: #f9fafb;
+        .user-list-item:hover {
+            background: #f3f4f6;
         }
 
         .user-list-item.active {
-            border-left: 3px solid var(--accent);
+            background: linear-gradient(90deg, rgba(204, 51, 0, 0.16), rgba(204, 51, 0, 0.05));
+            box-shadow: inset 4px 0 0 0 var(--accent), inset 0 0 0 1px rgba(204, 51, 0, 0.18);
+        }
 
+        .user-list-item.active .user-list-name {
+            color: #111827;
+            font-weight: 700;
+        }
+
+        .user-list-item.active .user-list-role {
+            color: #374151;
+            font-weight: 600;
+        }
+
+        .user-list-item.is-filtered-hidden {
+            display: none !important;
+        }
+
+        .chat-unread-dot {
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 10px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 0 0 2px #fff;
+            line-height: 1;
+        }
+        .chat-unread-dot[hidden] {
+            display: none !important;
+        }
+
+        .user-list-item.has-unread .user-list-name {
+            font-weight: 700;
         }
 
         .user-list-avatar {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: #d1d5db;
             color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 700;
             flex-shrink: 0;
+            box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(0,0,0,0.06);
         }
 
         .user-list-info {
@@ -95,6 +153,7 @@
             font-size: 11.5px;
             color: #6b7280;
             margin-top: 2px;
+            text-transform: capitalize;
         }
 
         .chat-main-area {
@@ -102,6 +161,7 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            min-height: 0;
             background: #f0f2f5;
         }
 
@@ -157,19 +217,22 @@
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #22c55e;
+            background: var(--accent);
             display: inline-block;
             margin-right: 4px;
-            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+            box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
         }
 
         /* ── Messages area ── */
         .chat-msgs-area {
             flex: 1;
+            min-height: 0;
             overflow-y: auto;
+            overflow-x: hidden;
             padding: 20px 24px;
             display: flex;
             flex-direction: column;
+            align-items: stretch;
             gap: 6px;
             scroll-behavior: smooth;
         }
@@ -211,6 +274,7 @@
             align-items: flex-end;
             gap: 8px;
             max-width: 72%;
+            overflow: visible;
             animation: msgIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
         }
 
@@ -290,8 +354,11 @@
             font-size: 13.5px;
             line-height: 1.55;
             word-break: break-word;
+            overflow-wrap: anywhere;
             position: relative;
             max-width: 100%;
+            overflow: visible;
+            overflow-x: visible;
         }
 
         /* theirs */
@@ -511,15 +578,70 @@
         }
 
         @keyframes typBounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-5px); }
+        }
 
-            0%,
-            80%,
-            100% {
-                transform: translateY(0);
+        /* ── Mobile responsive (sidebar open/close lives in app.css — avoid conflicting rules) ── */
+        @media (max-width: 768px) {
+            .chat-page-wrap {
+                margin: 0;
+                border-radius: 0;
+                border: none;
+                height: calc(100dvh - 58px - 72px - env(safe-area-inset-bottom, 0px));
+                min-height: 320px;
             }
-
-            40% {
-                transform: translateY(-5px);
+            .chat-topbar {
+                padding: 8px 10px;
+                min-height: 48px;
+                height: auto;
+                flex-wrap: wrap;
+                gap: 8px;
+                align-items: center;
+            }
+            .chat-topbar-info {
+                gap: 8px;
+                min-width: 0;
+                flex: 1;
+            }
+            .chat-topbar-title {
+                font-size: 13px;
+                line-height: 1.25;
+                word-break: break-word;
+            }
+            .chat-topbar-sub {
+                font-size: 10.5px;
+            }
+            .chat-msgs-area {
+                padding: 10px 12px;
+            }
+            .msg-row {
+                max-width: min(92%, calc(100vw - 24px));
+            }
+            .msg-bubble {
+                padding: 8px 12px;
+                font-size: 12.5px;
+            }
+            .chat-input-wrap {
+                padding: 8px 10px;
+                gap: 8px;
+            }
+            .chat-txt-input {
+                min-width: 0;
+                font-size: 16px;
+            }
+            .chat-send-btn {
+                width: 40px;
+                height: 40px;
+                flex-shrink: 0;
+            }
+            .user-list-item {
+                padding: 12px 14px;
+                min-height: 48px;
+            }
+            .request-card {
+                min-width: 0;
+                max-width: 100%;
             }
         }
     </style>
@@ -530,26 +652,44 @@
 
         {{-- Sidebar for Users --}}
         <div class="chat-sidebar">
+            <div class="wa-list-header">
+                <h2>Chat</h2>
+                <div class="wa-header-actions">
+                    <button type="button" class="wa-icon-btn" onclick="openNewChatModal()" title="Chat baru" aria-label="Chat baru">
+                        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="wa-search-wrap">
+                <div class="wa-search-inner">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="search" id="chat-contact-search" placeholder="Cari kontak..." autocomplete="off"
+                        data-list-search="#chat-contact-list .user-list-item"
+                        aria-label="Cari kontak">
+                </div>
+            </div>
             <div class="chat-sidebar-header" style="display:flex; align-items:center; justify-content:space-between;">
                 <span>Kontak Chat</span>
                 <button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="openNewChatModal()">+ Baru</button>
             </div>
-            <a href="{{ route('chat.index') }}" class="user-list-item {{ !$receiverId ? 'active' : '' }}">
+            <div id="chat-contact-list">
+            <a href="{{ route('chat.index', ['global' => 1]) }}" class="user-list-item {{ !$receiverId && request()->query('global') ? 'active' : '' }}" data-search="grup global semua anggota" data-contact-key="global">
                 <div class="user-list-avatar" style="background: linear-gradient(135deg, var(--accent), var(--accent-hover));">
-
                     <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#fff;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 </div>
-                <div class="user-list-info">
-                    <div class="user-list-name">Grup Global</div>
-                    <div class="user-list-role">Semua Anggota</div>
+                <div class="user-list-info" style="display:flex; align-items:center; justify-content:space-between; width:100%; gap: 12px;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="user-list-name" style="font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px;">Grup Global</div>
+                        <div class="user-list-role" style="font-size: 12px; color: #64748b; margin-top: 2px;">Semua Anggota</div>
+                    </div>
+                    <span class="chat-unread-dot" hidden aria-hidden="true" style="margin-left: auto;"></span>
                 </div>
             </a>
             @php
                 $roleColors = [
                     'admin' => 'var(--accent)',
-
                     'notaris' => '#3b82f6',
-                    'staff' => '#22c55e',
+                    'staff' => '#0ea5e9',
                     'freelancer' => '#9333ea',
                     'klien' => '#f59e0b',
                 ];
@@ -560,22 +700,49 @@
                     $clr = $roleColors[$u->role] ?? '#d1d5db';
                     $init = mb_strtoupper(mb_substr($u->name, 0, 1));
                 @endphp
-                <a href="{{ route('chat.index', ['user_id' => $u->id]) }}" class="user-list-item {{ $isActive ? 'active' : '' }}">
+                <a href="{{ route('chat.index', ['user_id' => $u->id]) }}" class="user-list-item {{ $isActive ? 'active' : '' }}" data-search="{{ strtolower($u->name . ' ' . $u->role . ' ' . $u->username) }}" data-contact-key="{{ $u->id }}">
                     <div class="user-list-avatar" style="background: {{ $clr }};">{{ $init }}</div>
-                    <div class="user-list-info">
-                        <div class="user-list-name" style="display:flex;align-items:center;justify-content:space-between;">
-                            <span>{{ $u->name }}</span>
+                    <div class="user-list-info" style="display:flex; align-items:center; justify-content:space-between; width:100%; gap: 12px;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="user-list-name" style="font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px;">{{ $u->name }}</div>
+                            <div class="user-list-role" style="font-size: 12px; color: #64748b; margin-top: 2px; text-transform: capitalize;">{{ $u->role }}</div>
                         </div>
-                        <div class="user-list-role" style="text-transform: capitalize;">{{ $u->role }}</div>
+                        <span class="chat-unread-dot" hidden aria-hidden="true" style="margin-left: auto;"></span>
                     </div>
                 </a>
             @endforeach
+            </div>
         </div>
 
         {{-- Main Chat Area --}}
         <div class="chat-main-area">
 
-            {{-- Top info bar --}}
+            {{-- WhatsApp-style mobile conversation header --}}
+            <div class="wa-chat-header">
+                <button type="button" class="wa-back-btn" onclick="goChatList()" aria-label="Kembali">
+                    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <div class="wa-chat-peer">
+                    @if($activeReceiver)
+                        @php $waClr = $roleColors[$activeReceiver->role] ?? '#3b82f6'; @endphp
+                        <div class="wa-peer-avatar" style="background:{{ $waClr }};">{{ mb_strtoupper(mb_substr($activeReceiver->name, 0, 1)) }}</div>
+                        <div>
+                            <div class="wa-peer-name">{{ $activeReceiver->name }}</div>
+                            <div class="wa-peer-status">{{ $activeReceiver->role }}</div>
+                        </div>
+                    @else
+                        <div class="wa-peer-avatar" style="background:var(--accent);">
+                            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:#fff;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </div>
+                        <div>
+                            <div class="wa-peer-name">Grup Global</div>
+                            <div class="wa-peer-status">Semua anggota</div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Top info bar (desktop) --}}
             <div class="chat-topbar" style="background: rgba(255,255,255,0.4); backdrop-filter: none; border-bottom: 1px solid rgba(0,0,0,0.05);">
                 <div class="chat-topbar-info">
                     @if($activeReceiver)
@@ -624,7 +791,7 @@
                         'admin' => 'var(--accent)',
 
                         'notaris' => '#3b82f6',
-                        'staff' => '#22c55e',
+                        'staff' => '#0ea5e9',
                         'freelancer' => '#9333ea',
                         'klien' => '#f59e0b',
                     ];
@@ -745,10 +912,13 @@
                 <button class="modal-close" onclick="document.getElementById('new-chat-modal').classList.remove('open')">×</button>
             </div>
             <div style="padding:16px;">
-                <input type="text" id="new-chat-search" placeholder="Cari nama pengguna..." style="width:100%; padding:10px 14px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:12px; outline:none; font-family:'Inter', sans-serif;" onkeyup="filterNewChat()">
-                <div id="new-chat-list" style="max-height:300px; overflow-y:auto; margin:-16px; padding:16px; display:flex; flex-direction:column; gap:4px;">
+                <input type="search" id="new-chat-search" placeholder="Cari nama pengguna..." autocomplete="off"
+                    data-list-search="#new-chat-list .user-list-item"
+                    style="width:100%; padding:10px 14px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:12px; outline:none; font-family:'Inter', sans-serif;"
+                    aria-label="Cari pengguna">
+                <div id="new-chat-list" style="max-height:min(320px,52vh); overflow-y:auto; margin:-16px; padding:16px; display:flex; flex-direction:column; gap:6px;-webkit-overflow-scrolling:touch;">
                     @foreach($users as $u)
-                        <a href="{{ route('chat.index', ['user_id' => $u->id]) }}" class="user-list-item" style="border-radius:8px; border:none;" data-name="{{ strtolower($u->name) }}">
+                        <a href="{{ route('chat.index', ['user_id' => $u->id]) }}" class="user-list-item" style="border-radius:8px; border:none;" data-search="{{ strtolower($u->name . ' ' . $u->role . ' ' . $u->username) }}">
                             <div class="user-list-avatar" style="background: {{ $roleColors[$u->role] ?? '#d1d5db' }};">{{ mb_strtoupper(mb_substr($u->name, 0, 1)) }}</div>
                             <div class="user-list-info">
                                 <div class="user-list-name">{{ $u->name }}</div>
@@ -764,16 +934,25 @@
 
 @push('scripts')
 <script>
-        var myUserId = {{ auth()->id() }};
+        window.HUGO_CHAT = {
+            userId: @json(auth()->id()),
+            receiverId: @json($receiverId),
+            isGlobalChat: {{ request()->query('global') ? 'true' : 'false' }},
+            lastMsgId: {{ $messages->isNotEmpty() ? (int) $messages->last()->id : 0 }},
+            listUrl: @json(route('chat.index'))
+        };
+        var myUserId = window.HUGO_CHAT.userId;
         var isAdmin = {{ in_array(auth()->user()->role, ['admin', 'notaris']) ? 'true' : 'false' }};
-        var receiverId = {{ $receiverId ?? 'null' }};
-        var lastMsgId = {{ $messages->isNotEmpty() ? $messages->last()->id : 0 }};
+        var receiverId = window.HUGO_CHAT.receiverId;
+        var isGlobalChat = window.HUGO_CHAT.isGlobalChat;
+        var lastMsgId = window.HUGO_CHAT.lastMsgId;
+        window.lastMsgId = lastMsgId;
 
         var roleColors = {
             admin: 'var(--accent)',
 
             notaris: '#3b82f6',
-            staff: '#22c55e',
+            staff: '#0ea5e9',
             freelancer: '#9333ea',
             klien: '#f59e0b'
         };
@@ -792,25 +971,28 @@
         // ── Mobile: chat sidebar toggle ──────────────────────────────────────
         function toggleChatSidebar() {
             var sb = document.querySelector('.chat-sidebar');
+            var wrap = document.querySelector('.chat-page-wrap');
             var btn = document.getElementById('chat-sidebar-toggle-btn');
-            if (!sb) return;
+            if (!sb || !wrap) return;
             var isOpen = sb.classList.toggle('open');
-            if (btn) btn.innerHTML = isOpen ? '✕ Tutup' : '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Kontak';
+            var kontakBtn = '<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Kontak';
+            if (btn) btn.innerHTML = isOpen ? '✕ Tutup' : kontakBtn;
 
-            // Dismiss overlay if already shown
             var ov = document.getElementById('chat-mob-overlay');
-            if (!ov) {
-                ov = document.createElement('div');
-                ov.id = 'chat-mob-overlay';
-                // Using position absolute inside parent to avoid body stacking context issues
-                ov.style.cssText = 'position:absolute;inset:0;z-index:2050;background:rgba(0,0,0,0.4);backdrop-filter:blur(2px);cursor:pointer;';
-                ov.onclick = function(){ 
-                    sb.classList.remove('open'); 
-                    ov.remove(); 
-                    if(btn) btn.innerHTML='<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Kontak'; 
-                };
-                sb.parentNode.appendChild(ov);
-            } else {
+            if (isOpen) {
+                if (!ov) {
+                    ov = document.createElement('div');
+                    ov.id = 'chat-mob-overlay';
+                    ov.setAttribute('aria-hidden', 'true');
+                    ov.onclick = function () {
+                        sb.classList.remove('open');
+                        ov.remove();
+                        if (btn) btn.innerHTML = kontakBtn;
+                    };
+                    /* Inside .chat-page-wrap so z-index stacks above .content-area (10); body overlay was blocking the drawer */
+                    wrap.appendChild(ov);
+                }
+            } else if (ov) {
                 ov.remove();
             }
         }
@@ -820,29 +1002,7 @@
         }
 
         function scrollBottom(force) {
-            const el = document.getElementById('chat-msgs-area');
-            if (!el) return;
-            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-            if (force || atBottom) {
-                // Use a small timeout to ensure images or dynamic content are rendered
-                setTimeout(() => {
-                    el.scrollTop = el.scrollHeight;
-                }, 50);
-            }
-        }
-
-        function openNewChatModal() {
-            document.getElementById('new-chat-modal').classList.add('open');
-            setTimeout(() => document.getElementById('new-chat-search').focus(), 100);
-        }
-
-        function filterNewChat() {
-            const v = document.getElementById('new-chat-search').value.toLowerCase();
-            const items = document.querySelectorAll('#new-chat-list .user-list-item');
-            items.forEach(item => {
-                if (item.dataset.name.includes(v)) item.style.display = 'flex';
-                else item.style.display = 'none';
-            });
+            if (window.HugoChatUi) HugoChatUi.scrollBottom(force);
         }
 
         function renderMsg(msg) {
@@ -977,6 +1137,18 @@
         }
 
         function approveReset(msgId, btn) {
+            var newPass = prompt("Masukkan kata sandi baru untuk pengguna ini:");
+            if (newPass === null) return; // User cancelled
+            newPass = newPass.trim();
+            if (!newPass) {
+                showToast('Kata sandi tidak boleh kosong', 'danger');
+                return;
+            }
+            if (newPass.length < 6) {
+                showToast('Sandi minimal 6 karakter', 'danger');
+                return;
+            }
+
             btn.disabled = true;
             btn.textContent = 'Memproses...';
             fetch(`{{ url('/chat/approve') }}/${msgId}`, {
@@ -986,7 +1158,7 @@
                         'X-CSRF-TOKEN': window.HUGO_CONFIG.csrf,
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({}),
+                    body: JSON.stringify({ password: newPass }),
                 })
                 .then(r => r.json())
                 .then(res => {
@@ -995,7 +1167,7 @@
                         if (card) {
                             const actionEl = card.querySelector('.btn, div[style*="b45309"]');
                             if (actionEl) actionEl.outerHTML =
-                                `<div class="req-approved">✅ Disetujui. Sandi sementara: <strong>${esc(res.temp_password)}</strong></div>`;
+                                `<div class="req-approved">✅ Disetujui. Sandi baru: <strong>${esc(res.temp_password)}</strong></div>`;
                         }
                         showToast('Sandi berhasil direset ✓', 'success');
                     } else {
@@ -1022,8 +1194,13 @@
                         var sidebar = document.querySelector('.chat-sidebar');
                         var globalItem = sidebar.querySelector('a[href*="chat"]'); // Global group
 
+                        var needBadgeRefresh = false;
                         data.messages.forEach(function(m) {
                             if (m.sender.id !== myUserId) {
+                                if (window.HugoChatUi) {
+                                    var peerKey = m.receiver_id ? String(m.sender.id) : 'global';
+                                    if (peerKey !== HugoChatUi.getChatReadKey()) needBadgeRefresh = true;
+                                }
                                 // Only append if it matches current view (Global vs Private)
                                 var isGlobalView = !receiverId;
                                 var isMsgGlobal = !m.receiver_id;
@@ -1045,14 +1222,19 @@
                             }
                         });
                         lastMsgId = data.last_id;
-                        localStorage.setItem('hugo_read_id', lastMsgId);
+                        window.lastMsgId = lastMsgId;
+                        if (window.HugoChatUi) HugoChatUi.lastMsgId = lastMsgId;
+                        var chatKey = window.HugoChatUi ? HugoChatUi.getChatReadKey() : null;
+                        if (chatKey && window.HugoChatUi) {
+                            HugoChatUi.markChatRead(chatKey, lastMsgId);
+                            HugoChatUi.updateContactBadge(chatKey, 0);
+                        }
                         scrollBottom(false);
+                        if (needBadgeRefresh && window.HugoChatUi) HugoChatUi.pollContactBadges();
                     }
                 }).catch(function(){});
         }
         setInterval(pollPageChat, 4000);
-
-        // mark current messages as read (badge reset)
-        if(lastMsgId) localStorage.setItem('hugo_read_id', lastMsgId);
     </script>
+    <script src="{{ asset('js/chat-ui.js') }}?v={{ filemtime(public_path('js/chat-ui.js')) }}"></script>
 @endpush

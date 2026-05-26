@@ -105,17 +105,21 @@
         }
 
         .case-pin {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 6px;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            padding: 2px 4px;
             border-radius: 4px;
             font-size: 10.5px;
             font-weight: 500;
             margin-bottom: 2px;
+            line-height: 1.2;
+            max-height: 2.6em;
             overflow: hidden;
-            white-space: nowrap;
             text-overflow: ellipsis;
+            word-break: break-word;
+            white-space: normal;
+            text-align: center;
             cursor: pointer;
         }
 
@@ -132,6 +136,12 @@
         .status-tertunda {
             background: #fee2e2;
             color: #dc2626;
+        }
+
+        .status-birthday {
+            background: #fdf2f8;
+            color: #db2777;
+            border: 1px solid #fbcfe8;
         }
 
         .detail-panel {
@@ -152,13 +162,23 @@
         .case-detail-card {
             display: flex;
             align-items: flex-start;
-            gap: 14px;
+            justify-content: space-between;
+            gap: 12px;
             padding: 14px;
             background: #f9fafb;
             border-radius: 10px;
             border-left: 3px solid var(--accent);
-
             margin-bottom: 10px;
+            overflow: visible;
+        }
+
+        .case-detail-card > div:first-child {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .case-detail-card > span:last-child {
+            flex-shrink: 0;
         }
 
         .empty-state {
@@ -171,12 +191,31 @@
         @media (max-width: 768px) {
             .calendar-wrap { padding: 12px; border-radius: 10px; }
             .cal-header { margin-bottom: 12px; }
-            .cal-header h3 { font-size: 14px; }
+            .cal-header h3 { font-size: 13.5px; }
             .cal-grid { gap: 2px; }
-            .cal-cell { min-height: 55px; padding: 4px; border-radius: 6px; }
-            .cal-date { font-size: 10px; margin-bottom: 2px; }
-            .case-pin { font-size: 8px; padding: 1px 3px; border-radius: 3px; }
-            .cal-day-label { font-size: 9px; padding: 4px 0; }
+            .cal-cell { 
+                min-height: 56px;
+                padding: 4px 2px; 
+                border-radius: 6px; 
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                overflow: visible;
+            }
+            .cal-date { 
+                font-size: 9.5px; 
+                margin-bottom: 2px; 
+                width: 100%; 
+                text-align: center; 
+            }
+            .case-pin { 
+                font-size: 7.5px;
+                padding: 2px 3px; 
+                border-radius: 3px; 
+                margin-bottom: 2px;
+                width: 100%;
+            }
+            .cal-day-label { font-size: 8.5px; padding: 4px 0; }
             .detail-panel { padding: 16px; border-radius: 10px; }
             .detail-panel h3 { font-size: 13px; }
             .case-detail-card { padding: 10px; gap: 10px; }
@@ -203,7 +242,6 @@
 
     @push('scripts')
         @php
-            // Pre-transform cases for JS: use deadline date as calendar key
             $calCases = $cases
                 ->map(function ($c) {
                     return [
@@ -219,9 +257,21 @@
                     ];
                 })
                 ->values();
+
+            $calClients = isset($clients) ? $clients->map(function ($cl) {
+                return [
+                    'id' => $cl->id_klien,
+                    'name' => $cl->name,
+                    'birth_month' => $cl->birth_date ? (int)$cl->birth_date->format('m') : null,
+                    'birth_day' => $cl->birth_date ? (int)$cl->birth_date->format('d') : null,
+                    'birth_date_formatted' => $cl->birth_date ? $cl->birth_date->format('d/m/Y') : null,
+                    'phone' => $cl->phone,
+                ];
+            })->filter(fn($cl) => !is_null($cl['birth_month']))->values() : [];
         @endphp
         <script>
             const dbCases = @json($calCases);
+            const dbClients = @json($calClients);
 
             const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober',
                 'November', 'Desember'
@@ -229,7 +279,6 @@
             const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
             const DAYS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
-            // Start on current month
             const now = new Date();
             let curDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -257,13 +306,20 @@
                 for (let d = 1; d <= daysInMonth; d++) {
                     const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                     const isToday = today.getFullYear() === y && today.getMonth() === m && today.getDate() === d;
-                    // Cases where deadline OR created_at is on this date
+                    
                     const dayCases = dbCases.filter(c => c.date === dateStr || c.created === dateStr);
-                    const pins = dayCases.map(c =>
+                    const dayBirthdays = dbClients.filter(c => c.birth_month === (m + 1) && c.birth_day === d);
+
+                    const casePins = dayCases.map(c =>
                         `<div class="case-pin status-${c.status}" onclick="event.stopPropagation();showDetail('${dateStr}')">${c.client}</div>`
                     ).join('');
+
+                    const bdayPins = dayBirthdays.map(c =>
+                        `<div class="case-pin status-birthday" onclick="event.stopPropagation();showDetail('${dateStr}')">🎂 ${c.name}</div>`
+                    ).join('');
+
                     grid.innerHTML += `<div class="cal-cell ${isToday?'today':''}" onclick="showDetail('${dateStr}')">
-            <div class="cal-date">${d}</div>${pins}</div>`;
+            <div class="cal-date">${d}</div>${casePins}${bdayPins}</div>`;
                 }
 
                 const total = firstDay + daysInMonth;
@@ -276,30 +332,57 @@
             function showDetail(dateStr) {
                 const dayCases = dbCases.filter(c => c.date === dateStr || c.created === dateStr);
                 const [y, m, d] = dateStr.split('-');
+                const monthNum = parseInt(m);
+                const dayNum = parseInt(d);
+                const dayBirthdays = dbClients.filter(c => c.birth_month === monthNum && c.birth_day === dayNum);
+
                 document.getElementById('detail-heading').textContent =
-                    `Kasus pada ${parseInt(d)} ${MONTH_SHORT[parseInt(m)-1]} ${y}`;
+                    `Kasus & Acara pada ${dayNum} ${MONTH_SHORT[monthNum-1]} ${y}`;
                 const body = document.getElementById('detail-body');
-                if (!dayCases.length) {
-                    body.innerHTML = '<div class="empty-state">Tidak ada kasus pada tanggal ini.</div>';
+                
+                if (!dayCases.length && !dayBirthdays.length) {
+                    body.innerHTML = '<div class="empty-state">Tidak ada kasus atau hari ulang tahun pada tanggal ini.</div>';
                     return;
                 }
+
                 const colors = {
                     selesai: '#22c55e',
                     proses: '#f59e0b',
                     tertunda: '#ef4444'
                 };
-                body.innerHTML = dayCases.map(c => {
-                    const clr = colors[c.status] || '#9ca3af';
-                    return `<div class="case-detail-card">
-            <div style="flex:1;">
-                <div style="font-size:14.5px;font-weight:600;color:#111827;margin-bottom:4px;">${c.client}</div>
-                <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">${c.kasus} <span style="margin-left:6px;background:#f3f4f6;padding:2px 8px;border-radius:12px;font-size:11px;color:#374151;font-weight:600;">${c.type}</span></div>
-                ${c.phone ? `<div style="font-size:12px;color:#9ca3af;">${c.phone}</div>` : ''}
-                <div style="font-size:12px;color:#9ca3af;margin-top:3px;">Deadline: ${c.deadline}</div>
-            </div>
-            <span style="padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:600;background:${clr}22;color:${clr};">${c.status.charAt(0).toUpperCase()+c.status.slice(1)}</span>
-        </div>`;
-                }).join('');
+
+                let html = '';
+
+                if (dayBirthdays.length) {
+                    html += dayBirthdays.map(c => {
+                        return `<div class="case-detail-card" style="border-left-color: #db2777; background: #fff5f7;">
+                            <div style="flex:1;">
+                                <div style="font-size:14.5px;font-weight:700;color:#9d174d;margin-bottom:4px;">🎂 Hari Ulang Tahun: ${c.name}</div>
+                                <div style="font-size:13px;color:#db2777;margin-bottom:4px;">Klien Terdaftar (${c.id})</div>
+                                ${c.phone ? `<div style="font-size:12px;color:#db2777;">Telp: ${c.phone}</div>` : ''}
+                                <div style="font-size:12px;color:#9ca3af;margin-top:3px;">Lahir: ${c.birth_date_formatted}</div>
+                            </div>
+                            <span style="padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:600;background:#fbcfe8;color:#9d174d;">HUT</span>
+                        </div>`;
+                    }).join('');
+                }
+
+                if (dayCases.length) {
+                    html += dayCases.map(c => {
+                        const clr = colors[c.status] || '#9ca3af';
+                        return `<div class="case-detail-card">
+                            <div style="flex:1;">
+                                <div style="font-size:14.5px;font-weight:600;color:#111827;margin-bottom:4px;">${c.client}</div>
+                                <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">${c.kasus} <span style="margin-left:6px;background:#f3f4f6;padding:2px 8px;border-radius:12px;font-size:11px;color:#374151;font-weight:600;">${c.type}</span></div>
+                                ${c.phone ? `<div style="font-size:12px;color:#9ca3af;">${c.phone}</div>` : ''}
+                                <div style="font-size:12px;color:#9ca3af;margin-top:3px;">Deadline: ${c.deadline}</div>
+                            </div>
+                            <span style="padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:600;background:${clr}22;color:${clr};">${c.status.charAt(0).toUpperCase()+c.status.slice(1)}</span>
+                        </div>`;
+                    }).join('');
+                }
+
+                body.innerHTML = html;
             }
 
             renderCal();

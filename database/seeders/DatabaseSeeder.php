@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 
+use App\Models\CaseDocument;
+
+
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
@@ -57,7 +60,7 @@ class DatabaseSeeder extends Seeder
                     'username' => "user{$i}",
                     'password' => Hash::make('password'),
                     'role' => $role,
-                    'custom_id' => strtoupper(substr($role, 0, 3)) . str_pad($i, 3, '0', STR_PAD_LEFT),
+                    'custom_id' => strtoupper(substr($role, 0, 3)) . str_pad($i + 10, 3, '0', STR_PAD_LEFT),
                 ]
             );
         }
@@ -118,34 +121,110 @@ class DatabaseSeeder extends Seeder
         }
 
         // 3. Create Cases (Linked to Clients)
-        foreach ($casesData as [$client, $phone, $address, $caseName, $type, $status, $deadline, $amount]) {
+        foreach ($casesData as $index => [$client, $phone, $address, $caseName, $type, $status, $deadline, $amount]) {
             $randomClient = $clients[array_rand($clients)];
             
-            $case = NotarisCase::create([
+            // Assign dummy files to exactly 50% of the cases (even indexes)
+            $hasDummyFiles = ($index % 2 === 0);
+
+            // Distribute created_at beautifully across the last 18 months
+            $created_at = \Carbon\Carbon::now()->subMonths(rand(0, 18))->subDays(rand(1, 28));
+            $newDeadline = $created_at->copy()->addDays(rand(15, 45))->format('Y-m-d');
+
+            $caseData = [
                 'client_name' => $client,
                 'phone' => $phone,
                 'address' => $address,
                 'case_name' => $caseName,
                 'type' => $type,
                 'status' => $status,
-                'deadline' => $deadline,
+                'deadline' => $newDeadline,
                 'created_by' => $admin?->id,
                 'id_klien' => $randomClient->id_klien, // Link to client
-            ]);
+            ];
 
-            Payment::create([
+            if ($hasDummyFiles) {
+                $caseData['file_ktp'] = 'case-files/dummy_ktp.pdf';
+                $caseData['file_npwp'] = 'case-files/dummy_npwp.pdf';
+                $caseData['file_kk'] = 'case-files/dummy_kk.pdf';
+                if ($type === 'Pribadi') {
+                    $caseData['file_buku_nikah'] = 'case-files/dummy_buku_nikah.pdf';
+                } else {
+                    $caseData['file_surat_perintah'] = 'case-files/dummy_surat_perintah.pdf';
+                }
+            }
+
+            $case = NotarisCase::create($caseData);
+            
+            // Set custom created_at/updated_at and save
+            $case->created_at = $created_at;
+            $case->updated_at = $created_at->copy()->addDays(rand(1, 14));
+            $case->timestamps = false;
+            $case->save();
+
+            if ($hasDummyFiles) {
+                // Ensure physical dummy files exist in storage/app/public/case-files
+                @mkdir(storage_path('app/public/case-files'), 0755, true);
+                @file_put_contents(storage_path('app/public/case-files/dummy_ktp.pdf'), '%PDF-1.4 ... Dummy KTP PDF Content');
+                @file_put_contents(storage_path('app/public/case-files/dummy_npwp.pdf'), '%PDF-1.4 ... Dummy NPWP PDF Content');
+                @file_put_contents(storage_path('app/public/case-files/dummy_kk.pdf'), '%PDF-1.4 ... Dummy KK PDF Content');
+                @file_put_contents(storage_path('app/public/case-files/dummy_buku_nikah.pdf'), '%PDF-1.4 ... Dummy Buku Nikah PDF Content');
+                @file_put_contents(storage_path('app/public/case-files/dummy_surat_perintah.pdf'), '%PDF-1.4 ... Dummy Surat Perintah PDF Content');
+
+                // Also populate CaseDocument database table for requirement files
+                foreach (['file_ktp', 'file_npwp', 'file_kk', 'file_buku_nikah', 'file_surat_perintah'] as $field) {
+                    if (!empty($case->$field)) {
+                        $doc = CaseDocument::create([
+                            'id_kasus' => $case->id_kasus,
+                            'filename' => basename($case->$field),
+                            'filepath' => $case->$field,
+                            'uploaded_by' => $admin?->id,
+                        ]);
+                        $doc->created_at = $created_at;
+                        $doc->updated_at = $created_at;
+                        $doc->timestamps = false;
+                        $doc->save();
+                    }
+                }
+
+                // Add a supporting/finished document to CaseDocument
+                @mkdir(storage_path('app/public/case-documents'), 0755, true);
+                $docPath = 'case-documents/dokumen_pendukung_dummy.pdf';
+                @file_put_contents(storage_path('app/public/' . $docPath), '%PDF-1.4 ... Dummy Supporting Document Content');
+                
+                $supportDoc = CaseDocument::create([
+                    'id_kasus' => $case->id_kasus,
+                    'filename' => 'dokumen_pendukung_dummy.pdf',
+                    'filepath' => $docPath,
+                    'uploaded_by' => $admin?->id,
+                ]);
+                $supportDoc->created_at = $created_at;
+                $supportDoc->updated_at = $created_at;
+                $supportDoc->timestamps = false;
+                $supportDoc->save();
+            }
+
+            $pay = Payment::create([
                 'id_kasus' => $case->id_kasus,
                 'amount' => $amount,
                 'status' => $payStatus[$status],
             ]);
+            $pay->created_at = $created_at;
+            $pay->updated_at = $created_at;
+            $pay->timestamps = false;
+            $pay->save();
 
             // 4. Create Archives
-            \App\Models\Archive::create([
+            $archive = \App\Models\Archive::create([
                 'client_name' => $case->client_name,
                 'id_kasus' => $case->id_kasus,
                 'id_klien' => $case->id_klien,
                 'folder_location' => "/Arsip/2026/$type/" . Str::slug($case->client_name),
             ]);
+            $archive->created_at = $created_at;
+            $archive->updated_at = $created_at;
+            $archive->timestamps = false;
+            $archive->save();
         }
     }
 }

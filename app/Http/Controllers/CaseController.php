@@ -6,6 +6,7 @@ use App\Models\CaseNote;
 use App\Models\AuditTrail;
 use App\Models\NotarisCase;
 use App\Models\Payment;
+use App\Models\PaymentHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -55,7 +56,8 @@ class CaseController extends Controller
     public function calendar()
     {
         $cases = NotarisCase::select('id_kasus', 'client_name', 'case_name', 'status', 'deadline', 'type')->get();
-        return view('cases.calendar', compact('cases'));
+        $clients = \App\Models\Client::whereNotNull('birth_date')->select('id_klien', 'name', 'birth_date', 'phone')->get();
+        return view('cases.calendar', compact('cases', 'clients'));
     }
 
 
@@ -78,17 +80,31 @@ class CaseController extends Controller
             'nominal_bayar' => 'nullable|numeric|min:0',
         ]);
 
-        $validated['status']     = 'proses';
-        $validated['created_by'] = Auth::id();
+        $validated['status']        = 'proses';
+        $validated['created_by']    = Auth::id();
+        $validated['nominal_bayar'] = $validated['nominal_bayar'] ?? 0;
 
         $fileFields = ['file_ktp', 'file_npwp', 'file_kk', 'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah'];
+        $uploadedDocs = [];
         foreach ($fileFields as $field) {
             if ($request->hasFile($field)) {
-                $validated[$field] = $request->file($field)->store('case-files', 'public');
+                $path = $request->file($field)->store('case-files', 'public');
+                $validated[$field] = $path;
+                $uploadedDocs[$field] = $path;
             }
         }
 
         $case = NotarisCase::create($validated);
+
+        // Also save each uploaded primary document to the CaseDocument database table
+        foreach ($uploadedDocs as $field => $path) {
+            CaseDocument::create([
+                'id_kasus'    => $case->id_kasus,
+                'filename'    => basename($path),
+                'filepath'    => $path,
+                'uploaded_by' => Auth::id()
+            ]);
+        }
 
         // Save formatted amount in payment
         $amountFormatted = $request->nominal_bayar ? 'Rp. ' . number_format($request->nominal_bayar, 0, ',', '.') : null;
@@ -138,11 +154,24 @@ class CaseController extends Controller
             'progress_note' => 'nullable|string|max:1000',
         ]);
 
+        if (array_key_exists('nominal_bayar', $validated)) {
+            $validated['nominal_bayar'] = $validated['nominal_bayar'] ?? 0;
+        }
+
         $fileFields = ['file_ktp', 'file_npwp', 'file_kk', 'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah'];
+        $uploadedDocs = [];
         foreach ($fileFields as $field) {
             if ($request->hasFile($field)) {
-                if ($case->$field) Storage::disk('public')->delete($case->$field);
-                $validated[$field] = $request->file($field)->store('case-files', 'public');
+                if ($case->$field) {
+                    Storage::disk('public')->delete($case->$field);
+                    // Remove old record in case_documents table to avoid duplicate entries
+                    CaseDocument::where('id_kasus', $case->id_kasus)
+                        ->where('filepath', $case->$field)
+                        ->delete();
+                }
+                $path = $request->file($field)->store('case-files', 'public');
+                $validated[$field] = $path;
+                $uploadedDocs[$field] = $path;
             }
         }
 
@@ -152,12 +181,49 @@ class CaseController extends Controller
 
         $case->update($validated);
 
+        // Save new documents to the CaseDocument table
+        foreach ($uploadedDocs as $field => $path) {
+            CaseDocument::create([
+                'id_kasus'    => $case->id_kasus,
+                'filename'    => basename($path),
+                'filepath'    => $path,
+                'uploaded_by' => Auth::id()
+            ]);
+        }
+
         // Synchronize payment amount if nominal_bayar changed
         if ($request->has('nominal_bayar')) {
             $payment = Payment::where('id_kasus', $case->id_kasus)->first();
             if ($payment) {
                 $amountFormatted = $request->nominal_bayar ? 'Rp. ' . number_format($request->nominal_bayar, 0, ',', '.') : null;
                 $payment->update(['amount' => $amountFormatted]);
+            }
+        }
+
+        // Auto-sync payment status with case status
+        $newStatus = $case->fresh()->status;
+        if ($newStatus !== $oldStatus) {
+            $payment = Payment::where('id_kasus', $case->id_kasus)->first();
+            if ($payment) {
+                if ($newStatus === 'selesai' && $payment->status === 'belum') {
+                    PaymentHistory::create([
+                        'payment_id'  => $payment->id_transaksi,
+                        'from_status' => $payment->status,
+                        'to_status'   => 'lunas',
+                        'note'        => 'Otomatis: kasus ditandai selesai',
+                        'changed_by'  => Auth::id(),
+                    ]);
+                    $payment->update(['status' => 'lunas']);
+                } elseif (in_array($newStatus, ['proses', 'tertunda']) && $payment->status === 'lunas') {
+                    PaymentHistory::create([
+                        'payment_id'  => $payment->id_transaksi,
+                        'from_status' => 'lunas',
+                        'to_status'   => 'belum',
+                        'note'        => 'Otomatis: status kasus diubah kembali ke ' . $newStatus,
+                        'changed_by'  => Auth::id(),
+                    ]);
+                    $payment->update(['status' => 'belum']);
+                }
             }
         }
 
@@ -196,12 +262,36 @@ class CaseController extends Controller
         $old = $case->status;
         $case->update(['status' => $new]);
 
+        // Auto-sync payment status when case status changes
+        $payment = Payment::where('id_kasus', $case->id_kasus)->first();
+        if ($payment) {
+            if ($new === 'selesai' && $payment->status === 'belum') {
+                PaymentHistory::create([
+                    'payment_id'  => $payment->id_transaksi,
+                    'from_status' => $payment->status,
+                    'to_status'   => 'lunas',
+                    'note'        => 'Otomatis: kasus ditandai selesai',
+                    'changed_by'  => Auth::id(),
+                ]);
+                $payment->update(['status' => 'lunas']);
+            } elseif (in_array($new, ['proses', 'tertunda']) && $payment->status === 'lunas') {
+                PaymentHistory::create([
+                    'payment_id'  => $payment->id_transaksi,
+                    'from_status' => 'lunas',
+                    'to_status'   => 'belum',
+                    'note'        => 'Otomatis: status kasus diubah ke ' . $new,
+                    'changed_by'  => Auth::id(),
+                ]);
+                $payment->update(['status' => 'belum']);
+            }
+        }
+
         // Log to timeline
         CaseNote::create([
             'id_kasus' => $case->id_kasus,
             'user_id'  => Auth::id(),
             'status'   => $new,
-            'note'     => $case->progress_note, // Keep current note
+            'note'     => $case->progress_note,
         ]);
 
         AuditTrail::log('cases', $case->id_kasus, 'status_changed', ['status' => $old], ['status' => $new]);
@@ -243,8 +333,8 @@ class CaseController extends Controller
     {
         $case = NotarisCase::where('id_kasus', $id)->firstOrFail();
         
-        // Prevent freelancers from uploading documents
-        if (Auth::user()->role === 'freelancer') {
+        // Freelancers can only upload to cases they created
+        if (Auth::user()->role === 'freelancer' && $case->created_by !== Auth::id()) {
             return response()->json(['success' => false, 'message' => 'Akses ditolak.'], 403);
         }
 
@@ -258,11 +348,17 @@ class CaseController extends Controller
             $path = $file->store('case-documents', 'public');
 
             $doc = CaseDocument::create([
-                'id_kasus' => $case->id_kasus,
-                'filename' => $filename,
-                'filepath' => $path,
+                'id_kasus'    => $case->id_kasus,
+                'filename'    => $filename,
+                'filepath'    => $path,
                 'uploaded_by' => Auth::id()
             ]);
+
+            // Auto-link to archive folder if one exists for this case
+            $archive = \App\Models\Archive::where('id_kasus', $case->id_kasus)->first();
+            if ($archive) {
+                $doc->update(['id_arsip' => $archive->id_arsip]);
+            }
 
             AuditTrail::log('cases', $case->id_kasus, 'document_uploaded', null, ['filename' => $filename]);
 
@@ -284,8 +380,8 @@ class CaseController extends Controller
     {
         $doc = CaseDocument::where('id_dok', $id)->firstOrFail();
         
-        // Prevent freelancers from deleting documents
-        if (Auth::user()->role === 'freelancer') {
+        // Freelancers can only delete from cases they created
+        if (Auth::user()->role === 'freelancer' && $doc->case->created_by !== Auth::id()) {
             return response()->json(['success' => false, 'message' => 'Akses ditolak.'], 403);
         }
 

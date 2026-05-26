@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>HUGO - Assistant | Login</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -15,12 +15,21 @@
             --accent-hover: #b91c1c;
         }
 
+        html {
+            height: 100%;
+            -webkit-text-size-adjust: 100%;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
+            min-height: 100dvh;
+            min-height: -webkit-fill-available;
             display: flex;
             background: #0f1117;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         /* ── LEFT PANEL ── */
@@ -194,6 +203,7 @@
 
         .input-wrap input {
             width: 100%;
+            max-width: 100%;
             padding: 12px 14px 12px 44px;
             border: 1.5px solid #e5e7eb;
             border-radius: 10px;
@@ -203,6 +213,11 @@
             color: #111827;
             transition: border-color 0.2s, box-shadow 0.2s;
             outline: none;
+        }
+
+        /* Room for show/hide control — avoids overlap on narrow screens */
+        #pass {
+            padding-right: 48px;
         }
 
         .input-wrap input:focus {
@@ -312,6 +327,56 @@
             text-align: center;
             font-size: 12px;
             color: #9ca3af;
+            line-height: 1.45;
+            padding: 0 4px;
+        }
+
+        .oauth-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 22px 0 0;
+            flex-wrap: nowrap;
+        }
+
+        .oauth-divider span {
+            font-size: 11px;
+            color: #9ca3af;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .oauth-divider .line {
+            flex: 1;
+            min-width: 0;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 100%;
+            padding: 12px 14px;
+            margin-top: 12px;
+            background: #fff;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            text-decoration: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            font-family: 'Inter', sans-serif;
+            box-sizing: border-box;
+        }
+
+        .btn-google:hover {
+            border-color: #CC3300;
+            box-shadow: 0 0 0 3px rgba(204, 51, 0, 0.08);
         }
 
         /* ── RESPONSIVE ── */
@@ -322,7 +387,100 @@
 
             .right-panel {
                 width: 100%;
-                padding: 40px 28px;
+                max-width: 100%;
+                flex: 1;
+                min-height: 100dvh;
+                min-height: -webkit-fill-available;
+                padding: max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(28px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+                justify-content: flex-start;
+                box-sizing: border-box;
+            }
+
+            .form-header h2 {
+                font-size: clamp(1.25rem, 4.5vw, 1.5rem);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .right-panel {
+                padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+            }
+
+            .form-header {
+                margin-bottom: 24px;
+            }
+
+            .form-header h2 {
+                word-break: break-word;
+            }
+
+            .form-group {
+                margin-bottom: 16px;
+            }
+
+            .form-row {
+                flex-wrap: wrap;
+                gap: 12px 8px;
+                align-items: flex-start;
+            }
+
+            .form-row label {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            .form-row a {
+                flex: 0 0 auto;
+                margin-left: auto;
+            }
+
+            .btn-login {
+                padding: 13px 14px;
+                font-size: 15px;
+                min-height: 48px;
+            }
+
+            .footer-note {
+                font-size: 11px;
+                margin-top: 24px;
+            }
+
+            .oauth-divider span {
+                font-size: 10px;
+            }
+
+            .btn-google {
+                font-size: 13px;
+                padding: 11px 12px;
+                min-height: 48px;
+            }
+        }
+
+        /* iOS: avoid zoom on field focus */
+        @media (max-width: 900px) and (pointer: coarse) {
+            .input-wrap input {
+                font-size: 16px;
+            }
+        }
+
+        /* Short viewports (mobile landscape): scroll, compress chrome */
+        @media (max-height: 520px) and (max-width: 900px) {
+            .right-panel {
+                min-height: 0;
+                padding-top: max(12px, env(safe-area-inset-top, 0px));
+                padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+            }
+
+            .form-header {
+                margin-bottom: 16px;
+            }
+
+            .form-group {
+                margin-bottom: 12px;
+            }
+
+            .footer-note {
+                margin-top: 16px;
             }
         }
     </style>
@@ -378,6 +536,10 @@
             <div class="error-box">{{ $errors->first() }}</div>
         @endif
 
+        @if (session('error'))
+            <div class="error-box">{{ session('error') }}</div>
+        @endif
+
         <form action="{{ url('/login') }}" method="POST">
             @csrf
 
@@ -389,7 +551,7 @@
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
                     </svg>
-                    <input type="text" id="username" name="username" placeholder="Masukkan username"
+                    <input type="text" id="username" name="username" placeholder="Username atau email"
                         value="{{ old('username') }}" required autofocus>
                 </div>
             </div>
@@ -431,15 +593,13 @@
         </form>
 
         <!-- Google Login Divider -->
-        <div style="display:flex;align-items:center;gap:12px;margin:24px 0 0;">
-            <div style="flex:1;height:1px;background:#e5e7eb;"></div>
-            <span style="font-size:12px;color:#9ca3af;white-space:nowrap;">atau masuk dengan</span>
-            <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+        <div class="oauth-divider" role="presentation">
+            <div class="line" aria-hidden="true"></div>
+            <span>atau masuk dengan</span>
+            <div class="line" aria-hidden="true"></div>
         </div>
 
-        <a href="{{ route('auth.google') }}" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px 16px;margin-top:14px;background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;font-weight:500;color:#374151;text-decoration:none;transition:border-color 0.2s,box-shadow 0.2s;font-family:'Inter',sans-serif;" 
-           onmouseover="this.style.borderColor='#CC3300';this.style.boxShadow='0 0 0 3px rgba(204,51,0,0.08)';"
-           onmouseout="this.style.borderColor='#e5e7eb';this.style.boxShadow='none';">
+        <a href="{{ route('auth.google') }}" class="btn-google">
             <svg width="18" height="18" viewBox="0 0 48 48">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                 <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>

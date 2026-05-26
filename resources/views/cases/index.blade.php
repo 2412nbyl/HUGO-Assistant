@@ -16,8 +16,12 @@
             flex-wrap: wrap;
         }
 
-        .filter-bar form {
-            display: contents;
+        .filter-bar .filter-bar-form {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
         }
 
         .search-wrap {
@@ -136,6 +140,42 @@
             flex-shrink: 0;
         }
 
+        /* Add-case modal: client dropdown — clear focus + selected state */
+        #add-case-modal .client-select-shell label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        #add-case-modal .client-select-field {
+            width: 100%;
+            max-width: 100%;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px 38px 12px 14px;
+            font-size: 14px;
+            font-weight: 500;
+            background: #fafafa;
+            color: #111827;
+            transition: border-color .2s, box-shadow .2s, background .2s, color .2s;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        #add-case-modal .client-select-field:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(204, 51, 0, 0.14);
+            background: #fff;
+        }
+
+        #add-case-modal .client-select-field.has-client {
+            border-color: rgba(204, 51, 0, 0.65);
+            background: linear-gradient(180deg, #fff5f0, #fff);
+            font-weight: 700;
+            color: #7c2d12;
+            box-shadow: 0 0 0 1px rgba(204, 51, 0, 0.12);
+        }
+
         /* Cases list */
         .cases-header {
             display: flex;
@@ -172,7 +212,7 @@
         .case-row {
             background: #fff;
             border: 1px solid #e5e7eb;
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 14px 18px;
             margin-bottom: 8px;
             display: flex;
@@ -360,18 +400,42 @@
             stroke-width: 2;
         }
 
-        /* ── Mobile responsive ── */
+        /* ── Mobile responsive ────────────────────────────────────────── */
         @media (max-width: 768px) {
-            .filter-bar { padding: 12px 14px; gap: 8px; }
+            .filter-bar { 
+                flex-direction: column; 
+                align-items: stretch !important; 
+                padding: 16px; 
+                gap: 16px; 
+            }
+            .search-wrap { width: 100%; min-width: 0; }
+            .pill-group { width: 100%; justify-content: flex-start; }
             .filter-divider { display: none; }
             .cases-header { flex-direction: column; align-items: flex-start; gap: 10px; }
             .cases-header > div { width: 100%; flex-wrap: wrap; }
-            .case-row-top { flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+            .case-row-top { flex-wrap: wrap !important; gap: 12px !important; padding: 16px !important; }
+            .case-info-main { min-width: 100% !important; flex: none !important; }
+            .case-meta-tags, .case-status-wrap, .case-deadline-wrap, .case-actions { 
+                width: 100% !important; 
+                margin: 0 !important; 
+                justify-content: flex-start !important; 
+            }
             .case-deadline { margin-left: 0; }
+            #add-case-modal .form-grid {
+                padding: 16px !important;
+                gap: 12px !important;
+            }
+            #add-case-modal .client-select-field {
+                min-height: 48px;
+                font-size: 16px;
+            }
         }
         @media (max-width: 480px) {
             .case-name { font-size: 13.5px; }
             .case-row-top .badge { font-size: 10.5px; padding: 3px 9px; }
+            #add-case-modal .modal-box {
+                max-width: 100% !important;
+            }
         }
 
         /* ─── Case Card (replaces .case-row) ─────────────────────────────── */
@@ -493,7 +557,11 @@
 
     <!-- FILTER BAR -->
     <div class="filter-bar">
-        <form method="GET" action="{{ route('cases.index') }}" style="display:contents;">
+        <form id="filter-form" method="GET" action="{{ route('cases.index') }}" class="filter-bar-form">
+            <!-- Hidden inputs to submit Type & Status in unison -->
+            <input type="hidden" name="type" id="filter-type" value="{{ request('type') }}">
+            <input type="hidden" name="status" id="filter-status" value="{{ request('status') }}">
+
             <!-- Search -->
             <div class="search-wrap">
                 <svg viewBox="0 0 24 24">
@@ -501,7 +569,7 @@
                     <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 <input type="text" name="search" value="{{ request('search') }}"
-                    placeholder="Cari nama klien atau kasus...">
+                    placeholder="Cari nama klien atau kasus..." onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
             </div>
 
             <div class="filter-divider"></div>
@@ -509,11 +577,11 @@
             <!-- Type filter pills -->
             <div class="pill-group">
                 <span class="pill-label">Tipe</span>
-                <a href="{{ route('cases.index', array_merge(request()->except('type', 'page'), [])) }}"
-                    class="pill {{ !request('type') ? 'active' : '' }}">Semua</a>
+                <button type="button" onclick="setFilter('type', '', this)"
+                    class="pill {{ !request('type') ? 'active' : '' }}">Semua</button>
                 @foreach (['PT', 'CV', 'Pribadi'] as $t)
-                    <a href="{{ route('cases.index', array_merge(request()->except('type', 'page'), ['type' => $t])) }}"
-                        class="pill pill-type-{{ $t }} {{ request('type') === $t ? 'active' : '' }}">{{ $t }}</a>
+                    <button type="button" onclick="setFilter('type', '{{ $t }}', this)"
+                        class="pill pill-type-{{ $t }} {{ request('type') === $t ? 'active' : '' }}">{{ $t }}</button>
                 @endforeach
             </div>
 
@@ -522,12 +590,33 @@
             <!-- Status filter pills -->
             <div class="pill-group">
                 <span class="pill-label">Status</span>
-                <a href="{{ route('cases.index', array_merge(request()->except('status', 'page'), [])) }}"
-                    class="pill {{ !request('status') ? 'active' : '' }}">Semua</a>
+                <button type="button" onclick="setFilter('status', '', this)"
+                    class="pill {{ !request('status') ? 'active' : '' }}">Semua</button>
                 @foreach (['proses' => 'Proses', 'selesai' => 'Selesai', 'tertunda' => 'Tertunda'] as $val => $label)
-                    <a href="{{ route('cases.index', array_merge(request()->except('status', 'page'), ['status' => $val])) }}"
-                        class="pill {{ request('status') === $val ? 'active' : '' }}">{{ $label }}</a>
+                    <button type="button" onclick="setFilter('status', '{{ $val }}', this)"
+                        class="pill {{ request('status') === $val ? 'active' : '' }}">{{ $label }}</button>
                 @endforeach
+            </div>
+
+            <div class="filter-divider"></div>
+
+            <!-- Month + Year filter -->
+            <div class="pill-group" style="align-items:center; gap:6px;">
+                <span class="pill-label">Periode</span>
+                <select name="month" data-native-select="true" onchange="this.form.submit()"
+                    style="padding:6px 10px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:12.5px; font-family:'Inter',sans-serif; color:#374151; background:#fff; outline:none; cursor:pointer; appearance:auto;">
+                    <option value="">Semua Bulan</option>
+                    @foreach([1=>'Jan',2=>'Feb',3=>'Mar',4=>'Apr',5=>'Mei',6=>'Jun',7=>'Jul',8=>'Agt',9=>'Sep',10=>'Okt',11=>'Nov',12=>'Des'] as $num => $name)
+                        <option value="{{ $num }}" {{ request('month') == $num ? 'selected' : '' }}>{{ $name }}</option>
+                    @endforeach
+                </select>
+                <select name="year" data-native-select="true" onchange="this.form.submit()"
+                    style="padding:6px 10px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:12.5px; font-family:'Inter',sans-serif; color:#374151; background:#fff; outline:none; cursor:pointer; appearance:auto;">
+                    <option value="">Semua Tahun</option>
+                    @for($y = date('Y'); $y >= date('Y') - 4; $y--)
+                        <option value="{{ $y }}" {{ request('year') == $y ? 'selected' : '' }}>{{ $y }}</option>
+                    @endfor
+                </select>
             </div>
 
             <button type="submit" class="btn btn-primary filter-submit" style="padding:8px 18px;font-size:13px;">
@@ -537,6 +626,12 @@
                 </svg>
                 Cari
             </button>
+
+            @if(request()->hasAny(['search','type','status','month','year']))
+            <a href="{{ route('cases.index') }}" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;margin-left:8px;" title="Hapus semua filter">
+                ✕ Reset
+            </a>
+            @endif
         </form>
     </div>
 
@@ -557,7 +652,7 @@
                 PDF
             </a>
             @endif
-            <button class="btn btn-primary" onclick="document.getElementById('add-case-modal').classList.add('open')">
+            <button class="btn btn-primary" onclick="openAddCaseModal()">
                 <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2.5;">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
@@ -608,9 +703,10 @@
                         </div>
 
                         <div class="case-status-wrap" style="min-width:110px;">
-                            <select class="pill status-select" style="width:100%; padding:5px 10px; font-size:11.5px; border-radius:20px; cursor:pointer;"
+                            <select class="form-select status-select" style="width:100%; font-size:11.5px; border-radius:20px; cursor:pointer;"
                                 data-case="{{ $case->id_kasus }}"
                                 data-prev="{{ $case->status }}"
+                                data-popup-title="Status Kasus"
                                 onchange="confirmStatusChange('{{ $case->id_kasus }}', this)">
                                 @foreach(['proses'=>'Proses','tertunda'=>'Tertunda','selesai'=>'Selesai'] as $val=>$lbl)
                                     @php
@@ -623,8 +719,9 @@
                             </select>
                         </div>
 
-                        <div class="case-deadline-wrap" style="white-space:nowrap; font-size:12px; color:var(--text-muted);">
-                            ⏰ {{ $case->deadline?->format('d/m/Y') }}
+                        <div class="case-deadline-wrap" style="white-space:nowrap; font-size:12px; color:var(--text-muted); display:inline-flex; align-items:center; gap:4px;">
+                            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            {{ $case->deadline?->format('d/m/Y') }}
                         </div>
 
                         <div class="case-actions" style="display:flex; gap:6px; margin-left:8px;">
@@ -634,7 +731,7 @@
                             </a>
                             @endif
                             <form method="POST" action="{{ route('cases.destroy', $case->id_kasus) }}"
-                                onsubmit="event.preventDefault(); showConfirm('Hapus Kasus','Yakin hapus kasus <strong>{{ addslashes($case->client_name) }}</strong>?',()=>this.submit(),'🗑️')">
+                                onsubmit="event.preventDefault(); showConfirm('Hapus Kasus','Yakin hapus kasus <strong>{{ addslashes($case->client_name) }}</strong>?',()=>this.submit(),'!')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn-del" title="Hapus">
                                     <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
@@ -682,7 +779,9 @@
     @empty
         <div
             style="text-align:center;padding:48px;color:#6b7280;background:#fff;border-radius:14px;border:1px solid #e5e7eb;">
-            <div style="font-size:36px;margin-bottom:12px;">📂</div>
+            <div style="display:flex;justify-content:center;margin-bottom:12px;">
+                <svg viewBox="0 0 24 24" style="width:48px;height:48px;stroke:#9ca3af;fill:none;stroke-width:1.5;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </div>
             <div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:6px;">Tidak ada kasus ditemukan</div>
             <div style="font-size:13.5px;">Coba ubah filter atau tambahkan kasus baru.</div>
         </div>
@@ -700,9 +799,9 @@
                     @csrf
                     <div class="form-grid" style="padding:24px;">
                         {{-- Client selector --}}
-                        <div class="form-row" style="grid-column:span 2;">
-                            <label>Pilih Klien Terdaftar</label>
-                            <select name="id_klien" onchange="autoFillClient(this)">
+                        <div class="form-row client-select-shell" style="grid-column:span 2;">
+                            <label for="add-case-client-select">Pilih Klien Terdaftar</label>
+                            <select name="id_klien" id="add-case-client-select" class="form-select client-select-field" data-popup-title="Pilih Klien" onchange="autoFillClient(this)">
                                 <option value="">-- Klien Baru --</option>
                                 @foreach ($clients as $cl)
                                     <option value="{{ $cl->id_klien }}"
@@ -741,7 +840,7 @@
                         </div>
                         <div class="form-row">
                             <label>Tipe Kasus *</label>
-                            <select name="type" required>
+                            <select name="type" data-popup-title="Tipe Kasus" required>
                                 <option value="PT">PT</option>
                                 <option value="CV">CV</option>
                                 <option value="Pribadi">Pribadi</option>
@@ -762,10 +861,10 @@
                         <div class="form-row">
                             <label>Berkas Dokumen</label>
                             <div class="file-grid">
-                                @foreach ([['file_ktp', 'KTP', '🪪'], ['file_npwp', 'NPWP', '📄'], ['file_kk', 'KK', '👨‍👩‍👧'], ['file_surat_tanah', 'Surat Tanah', '🏡'], ['file_buku_nikah', 'Buku Nikah', '💍'], ['file_surat_perintah', 'Surat Perintah', '📋']] as [$fname, $flabel, $ficon])
+                                @foreach ([['file_ktp', 'KTP'], ['file_npwp', 'NPWP'], ['file_kk', 'KK'], ['file_surat_tanah', 'Surat Tanah'], ['file_buku_nikah', 'Buku Nikah'], ['file_surat_perintah', 'Surat Perintah']] as [$fname, $flabel])
                                     <label class="file-chip" id="chip-{{ $fname }}" for="{{ $fname }}"
                                         @if ($fname === 'file_surat_perintah') style="grid-column:span 2;" @endif>
-                                        <span style="font-size:18px;">{{ $ficon }}</span>
+                                        <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                                         {{ $flabel }}
                                     </label>
                                     <input type="file" id="{{ $fname }}" name="{{ $fname }}"
@@ -791,14 +890,17 @@
                 const chip = document.getElementById(chipId);
                 if (input.files[0]) {
                     chip.classList.add('ok');
-                    chip.innerHTML = `<span style="font-size:18px;">✅</span>${label} ✓`;
+                    chip.innerHTML = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>${label} ✓`;
                 }
             }
 
             function autoFillClient(select) {
                 const opt = select.options[select.selectedIndex];
-                if (!opt.value) return;
-
+                if (!opt || !opt.value) {
+                    select.classList.remove('has-client');
+                    return;
+                }
+                select.classList.add('has-client');
                 document.getElementById('inc-client-name').value = opt.getAttribute('data-name') || '';
                 document.getElementById('inc-phone').value = opt.getAttribute('data-phone') || '';
                 document.getElementById('inc-address').value = opt.getAttribute('data-address') || '';
@@ -855,6 +957,13 @@
                 });
             });
 
+            function openAddCaseModal() {
+                var modal = document.getElementById('add-case-modal');
+                if (!modal) return;
+                modal.classList.add('open');
+                if (window.HugoPopupSelect) HugoPopupSelect.refresh(modal);
+            }
+
             function confirmStatusChange(caseId, selectEl) {
                 var newStatus = selectEl.value;
                 var prev = selectEl.dataset.prev || newStatus;
@@ -888,12 +997,20 @@
                             } else {
                                 showToast(data.error || 'Gagal mengubah status', 'danger');
                                 selectEl.value = prev;
+                                if (window.HugoPopupSelect) HugoPopupSelect.refresh(selectEl.closest('.popup-select-wrap') || selectEl.parentNode);
                             }
                         })
-                        .catch(function() { selectEl.value = prev; showToast('Gagal mengubah status', 'danger'); });
+                        .catch(function() {
+                            selectEl.value = prev;
+                            if (window.HugoPopupSelect) HugoPopupSelect.refresh(selectEl.closest('.popup-select-wrap') || selectEl.parentNode);
+                            showToast('Gagal mengubah status', 'danger');
+                        });
                     },
-                    '🔄',
-                    function() { selectEl.value = prev; } // on cancel: restore
+                    '!',
+                    function() {
+                        selectEl.value = prev;
+                        if (window.HugoPopupSelect) HugoPopupSelect.refresh(selectEl.closest('.popup-select-wrap') || selectEl.parentNode);
+                    }
                 );
                 selectEl.dataset.prev = prev;
             }
@@ -924,6 +1041,11 @@
                     })
                     .catch(function() {});
                 }, 600); // debounce 600ms
+            }
+
+            function setFilter(name, value, btn) {
+                document.getElementById('filter-' + name).value = value;
+                document.getElementById('filter-form').submit();
             }
 
             @if (session('success'))

@@ -204,6 +204,44 @@
             display: flex;
             gap: 5px;
         }
+
+        @media (max-width: 768px) {
+            .filter-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-actions {
+                margin-left: 0;
+                flex-wrap: wrap;
+            }
+
+            .filter-row .btn-primary {
+                margin-left: 0 !important;
+                width: 100%;
+            }
+
+            .report-table-scroll {
+                width: 100%;
+                max-width: 100%;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .report-table-scroll .report-table {
+                min-width: 680px;
+            }
+
+            .report-table th,
+            .report-table td {
+                white-space: normal;
+                word-break: break-word;
+                vertical-align: top;
+            }
+
+            .report-table .row-exports {
+                flex-wrap: nowrap;
+            }
+        }
     </style>
 
     <!-- FILTER CARD -->
@@ -211,7 +249,7 @@
         <div class="filter-card-title">Filter Laporan</div>
         <form method="GET" action="{{ route('reports.index') }}">
             <div class="filter-row">
-                <select name="month" class="select-styled">
+                <select name="month" class="select-styled" data-popup-title="Bulan">
                     <option value="">Semua Bulan</option>
                     @foreach (range(1, 12) as $m)
                         <option value="{{ $m }}" {{ request('month') == $m ? 'selected' : '' }}>
@@ -220,7 +258,7 @@
                     @endforeach
                 </select>
 
-                <select name="year" class="select-styled">
+                <select name="year" class="select-styled" data-popup-title="Tahun">
                     @foreach ([2026, 2025, 2024, 2023] as $y)
                         <option value="{{ $y }}" {{ request('year', now()->year) == $y ? 'selected' : '' }}>
                             {{ $y }}</option>
@@ -282,7 +320,7 @@
             <div style="font-size:15px;font-weight:600;color:#374151;">Tidak ada laporan untuk filter ini</div>
         </div>
     @else
-        <div class="table-responsive">
+        <div class="table-responsive report-table-scroll">
         <table class="report-table" id="report-table">
             <thead>
                 <tr>
@@ -315,9 +353,9 @@
                         <td style="color:#374151;">{{ $case->deadline?->format('d/m/Y') }}</td>
                         <td>
                             <div class="row-exports">
-                                <button class="btn-export btn-excel" onclick="showToast('Mengekspor ke Excel...','info')"
+                                <button type="button" class="btn-export btn-excel" onclick="exportRowExcel({{ $i }})"
                                     title="Excel" style="padding:4px 10px;">XLS</button>
-                                <button class="btn-export btn-pdf" onclick="showToast('Mengekspor ke PDF...','info')"
+                                <button type="button" class="btn-export btn-pdf" onclick="exportRowPdf({{ $i }})"
                                     title="PDF" style="padding:4px 10px;">PDF</button>
                             </div>
                         </td>
@@ -400,6 +438,22 @@
             const exportRows = @json($exportData);
             const exportFilename = 'Laporan_HUGO_{{ now()->format('Y-m-d') }}';
 
+            function printedAtLabel() {
+                return new Date().toLocaleString('id-ID', {
+                    timeZone: 'Asia/Jakarta',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                }) + ' WIB';
+            }
+
+            function safeFileName(name) {
+                return String(name || 'kasus').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'kasus';
+            }
+
             function exportReport(fmt) {
                 if (!exportRows.length) {
                     showToast('Tidak ada data untuk diekspor', 'danger');
@@ -428,7 +482,7 @@
                     const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office'><head><meta charset='UTF-8'>
             <style>table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px 10px;font-size:12pt}</style></head>
             <body><h2>HUGO Assistant - Arsip Laporan</h2>
-            <p>Dicetak: ${new Date().toLocaleDateString('id-ID')}</p>
+            <p>Dicetak: ${printedAtLabel()}</p>
             <table><thead><tr><th>No</th><th>Klien</th><th>Kasus</th><th>Tipe</th><th>Status Kasus</th><th>Status Bayar</th><th>Deadline</th></tr></thead>
             <tbody>${rows}</tbody></table></body></html>`;
                     const blob = new Blob(['\ufeff', html], {
@@ -441,14 +495,17 @@
                     showToast('File Word berhasil diunduh ✓', 'success');
 
                 } else if (fmt === 'pdf') {
-                    // Open print dialog scoped to the print area
                     const win = window.open('', '_blank', 'width=900,height=700');
+                    if (!win) {
+                        showToast('Izinkan pop-up untuk export PDF', 'warning');
+                        return;
+                    }
                     const rows = exportRows.map((r, i) =>
                         `<tr><td>${i+1}</td><td>${r.client}</td><td>${r.case}</td><td>${r.type}</td><td>${r.status}</td><td>${r.pay_status}</td><td>${r.deadline}</td></tr>`
                     ).join('');
                     win.document.write(`<html><head><title>Laporan HUGO</title>
             <style>body{font-family:Arial,sans-serif;padding:20px}h2{text-align:center}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:7px 10px;font-size:11pt}</style></head>
-            <body><h2>HUGO Assistant — Arsip Laporan</h2><p style='text-align:center;font-size:10pt;color:#666'>Dicetak: ${new Date().toLocaleDateString('id-ID')}</p>
+            <body><h2>HUGO Assistant — Arsip Laporan</h2><p style='text-align:center;font-size:10pt;color:#666'>Dicetak: ${printedAtLabel()}</p>
             <table><thead><tr><th>No</th><th>Klien</th><th>Kasus</th><th>Tipe</th><th>Status</th><th>Pembayaran</th><th>Deadline</th></tr></thead>
             <tbody>${rows}</tbody></table></body></html>`);
                     win.document.close();
@@ -458,19 +515,47 @@
                 }
             }
 
-            // Row-level single case export (CSV)
-            function exportRow(i) {
+            function exportRowExcel(i) {
                 const r = exportRows[i];
-                const csv = 'No,Klien,Kasus,Tipe,Status,Pembayaran,Deadline\n' + [i + 1, r.client, r.case, r.type, r.status, r
-                    .pay_status, r.deadline
-                ].join(',');
-                const blob = new Blob([csv], {
-                    type: 'text/csv;charset=utf-8;'
-                });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `Kasus_${r.client.replace(/\s+/g,'_')}.csv`;
-                a.click();
+                if (!r) {
+                    showToast('Data baris tidak ditemukan', 'danger');
+                    return;
+                }
+                const headers = ['No', 'Klien', 'Kasus', 'Tipe', 'Status Kasus', 'Status Bayar', 'Deadline'];
+                const data = [[i + 1, r.client, r.case, r.type, r.status, r.pay_status, r.deadline]];
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+                ws['!cols'] = headers.map(function () { return { wch: 22 }; });
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Kasus');
+                XLSX.writeFile(wb, 'Kasus_' + safeFileName(r.client) + '.xlsx');
+                showToast('Excel baris diunduh ✓', 'success');
+            }
+
+            function exportRowPdf(i) {
+                const r = exportRows[i];
+                if (!r) {
+                    showToast('Data baris tidak ditemukan', 'danger');
+                    return;
+                }
+                const win = window.open('', '_blank', 'width=900,height=700');
+                if (!win) {
+                    showToast('Izinkan pop-up untuk export PDF', 'warning');
+                    return;
+                }
+                const esc = function (s) {
+                    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                };
+                win.document.write('<html><head><title>Kasus ' + esc(r.client) + '</title>' +
+                    '<style>body{font-family:Arial,sans-serif;padding:20px}h2{text-align:center}' +
+                    'table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:8px 10px;font-size:11pt;text-align:left}' +
+                    'th{background:#f3f4f6}</style></head><body>' +
+                    '<h2>HUGO Assistant — Laporan Kasus</h2>' +
+                    '<p style="text-align:center;font-size:10pt;color:#666">Dicetak: ' + printedAtLabel() + '</p>' +
+                    '<table><thead><tr><th>No</th><th>Klien</th><th>Kasus</th><th>Tipe</th><th>Status</th><th>Pembayaran</th><th>Deadline</th></tr></thead>' +
+                    '<tbody><tr><td>' + (i + 1) + '</td><td>' + esc(r.client) + '</td><td>' + esc(r.case) + '</td><td>' + esc(r.type) +
+                    '</td><td>' + esc(r.status) + '</td><td>' + esc(r.pay_status) + '</td><td>' + esc(r.deadline) + '</td></tr></tbody></table></body></html>');
+                win.document.close();
+                setTimeout(function () { win.print(); }, 400);
             }
         </script>
     @endpush
