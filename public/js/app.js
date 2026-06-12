@@ -40,9 +40,11 @@ function handleAvatarSelect(e) {
     reader.onload = ev => {
         cropImage = new Image();
         cropImage.onload = () => {
+            // Save original src so cancelCrop() can restore it
+            window._originalAvatarSrc = document.getElementById('avatar-preview').src;
             document.getElementById('crop-canvas').style.display = 'block';
             document.getElementById('crop-controls').style.display = 'flex';
-            document.getElementById('save-avatar-btn').style.display = '';
+            document.getElementById('crop-save-wrap').style.display = 'flex';
             cropPanX = 0; cropPanY = 0;
             document.getElementById('zoom-range').value = 1;
             document.getElementById('rotate-range').value = 0;
@@ -114,13 +116,24 @@ function saveAvatar() {
         if (res.success) {
             const stamp = '?t=' + Date.now();
             document.querySelectorAll('.profile-avatar, .top-bar-avatar, #avatar-preview, #sidebar-avatar')
-                .forEach(el => el.src = res.url + stamp);
+                .forEach(el => {
+                    if (el.tagName === 'IMG') {
+                        el.src = res.url + stamp;
+                        el.style.display = ''; // Ensure the image is visible
+                    }
+                });
+            // Hide any visible initials fallbacks
+            document.querySelectorAll('#topbar-avatar-fallback, #sidebar-avatar-fallback').forEach(fb => {
+                fb.style.display = 'none';
+            });
+            window._originalAvatarSrc = res.url + stamp; // Update stored original src to the new avatar URL
+            cancelCrop();
             closeProfileModal();
             showToast('Foto profil berhasil disimpan ✓', 'success');
         } else { showToast(res.message || 'Gagal menyimpan foto', 'danger'); }
     })
     .catch(() => showToast('Gagal menghubungi server', 'danger'))
-    .finally(() => { btn.disabled = false; btn.textContent = 'Simpan Foto'; });
+    .finally(() => { btn.disabled = false; btn.textContent = 'Potong & Simpan'; });
 }
 
 /* ─── CHANGE PASSWORD ─── */

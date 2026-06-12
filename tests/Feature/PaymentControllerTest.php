@@ -208,6 +208,7 @@ class PaymentControllerTest extends TestCase
     /** @test */
     public function update_status_returns_json_success_true_on_valid_request(): void
     {
+        $this->withoutExceptionHandling();
         [$user, $case, $payment] = $this->makePayment('belum');
 
         $this->actingAs($user)

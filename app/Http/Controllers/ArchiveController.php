@@ -74,6 +74,8 @@ class ArchiveController extends Controller
 
         $finishedCases = $finishedQuery->get();
 
+        $isLocal = request()->getHost() === 'localhost' || request()->getHost() === '127.0.0.1' || env('APP_ENV') === 'local';
+
         // Attach folder_location + is_physical to each finished case
         foreach ($finishedCases as $case) {
             $archive = Archive::where('id_kasus', $case->id_kasus)->first();
@@ -82,10 +84,16 @@ class ArchiveController extends Controller
                 $case->is_physical = strpos($archive->folder_location, '/') === false
                     && strpos($archive->folder_location, '\\') === false;
             } else {
-                $case->folder_location = storage_path('app/public/case-files/' . $case->id_kasus);
+                if ($isLocal) {
+                    $case->folder_location = storage_path('app/public/case-files/' . $case->id_kasus);
+                } else {
+                    $case->folder_location = url('storage/case-files/' . $case->id_kasus);
+                }
                 $case->is_physical = false;
             }
-            $case->folder_location = str_replace('/', DIRECTORY_SEPARATOR, $case->folder_location);
+            if ($isLocal) {
+                $case->folder_location = str_replace('/', DIRECTORY_SEPARATOR, $case->folder_location);
+            }
         }
 
         // Determine active tab from query param (default: support)

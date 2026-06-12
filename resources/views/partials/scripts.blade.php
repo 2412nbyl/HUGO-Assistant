@@ -82,6 +82,28 @@ function showToast(msg, type, title){
     setTimeout(function(){ t.style.transition='opacity 0.35s,transform 0.35s'; t.style.opacity='0'; t.style.transform='translateY(-8px) scale(0.96)'; setTimeout(function(){ t.remove(); },380); },4200);
 }
 
+/* ─── Global Session Flash → Toast ────────────────────────────────── */
+(function(){
+    var flashes = [
+        @if(session('success'))  { msg: '{{ addslashes(session('success')) }}',  type: 'success' }, @endif
+        @if(session('message'))  { msg: '{{ addslashes(session('message')) }}',  type: 'success' }, @endif
+        @if(session('error'))    { msg: '{{ addslashes(session('error')) }}',    type: 'danger'  }, @endif
+        @if(session('warning'))  { msg: '{{ addslashes(session('warning')) }}',  type: 'warning' }, @endif
+        @if(session('info'))     { msg: '{{ addslashes(session('info')) }}',     type: 'info'    }, @endif
+    ];
+    if (!flashes.length) return;
+    function fire() {
+        flashes.forEach(function(f, i) {
+            setTimeout(function(){ showToast(f.msg, f.type); }, i * 300);
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fire);
+    } else {
+        fire();
+    }
+})();
+
 function showChatToast(name, message, isPrivate){
     var c=document.getElementById('toast-container'); if(!c) return;
     var t=document.createElement('div'); t.className='chat-toast';
@@ -179,18 +201,38 @@ function closeConfirm(){ var o=document.getElementById('confirm-modal'); if(o) o
 
 
     /* ─── Global Modal Scroll Lock ─── */
+    function syncScrollLock() {
+        document.body.classList.toggle('modal-open', !!document.querySelector('.modal-overlay.open'));
+    }
+
     const modalObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'class') {
-                const anyOpen = document.querySelector('.modal-overlay.open');
-                document.body.classList.toggle('modal-open', !!anyOpen);
+                syncScrollLock();
             }
         });
     });
 
-    document.querySelectorAll('.modal-overlay').forEach(m => {
-        modalObserver.observe(m, { attributes: true });
+    function observeModal(el) {
+        modalObserver.observe(el, { attributes: true });
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(observeModal);
+
+    // Also watch for any .modal-overlay added dynamically to the DOM
+    const domWatcher = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1) {
+                    if (node.classList && node.classList.contains('modal-overlay')) {
+                        observeModal(node);
+                    }
+                    node.querySelectorAll && node.querySelectorAll('.modal-overlay').forEach(observeModal);
+                }
+            });
+        });
     });
+    domWatcher.observe(document.body, { childList: true, subtree: true });
 
     window.dismissBirthdayReminder = function() {
         const until = new Date();

@@ -169,12 +169,7 @@
         @endif
     </div>
 
-    @if(session('success'))
-        <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:11px 15px; border-radius:10px; margin-bottom:14px; font-size:13.5px; display:flex; align-items:center; gap:8px;">
-            <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:#16a34a;fill:none;stroke-width:2.5;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
-            {{ session('success') }}
-        </div>
-    @endif
+    {{-- Flash via toast --}}
 
     {{-- ── Tab Bar ── --}}
     <div class="da-tab-bar">
@@ -247,7 +242,7 @@
                         }
                         $docCount = $docs->count() + count($persyaratanFiles);
                     @endphp
-                    <div class="da-card {{ $loop->first ? 'open' : '' }}" id="folder-{{ $a->id_arsip }}">
+                    <div class="da-card" id="folder-{{ $a->id_arsip }}">
                         <div class="da-card-header" onclick="toggleCard('folder-{{ $a->id_arsip }}','sup-docs-{{ $a->id_arsip }}')">
                             <div class="da-card-left">
                                 <div class="da-folder-icon">
@@ -284,7 +279,7 @@
                             </div>
                         </div>
 
-                        <div class="da-expanded" id="sup-docs-{{ $a->id_arsip }}" style="{{ $loop->first ? '' : 'display:none;' }}">
+                        <div class="da-expanded" id="sup-docs-{{ $a->id_arsip }}" style="display:none;">
                             <div class="da-doc-list">
                                 @if(count($persyaratanFiles) === 0 && $docs->isEmpty())
                                     <div style="padding:16px 56px; font-size:13px; color:#9ca3af; display:flex; align-items:center; gap:8px;">
@@ -467,47 +462,20 @@
                 <div class="da-card-list">
                     @foreach($finishedCases as $case)
                     @php
-                        $primaryFields = [
-                            'file_ktp'            => 'KTP',
-                            'file_npwp'           => 'NPWP',
-                            'file_kk'             => 'Kartu Keluarga',
-                            'file_surat_tanah'    => 'Surat Tanah',
-                            'file_surat_perintah' => 'Surat Perintah',
-                            'file_buku_nikah'     => 'Buku Nikah',
-                        ];
                         $fcFiles = [];
-                        foreach ($primaryFields as $field => $label) {
-                            if (!empty($case->$field)) {
-                                $fcFiles[] = [
-                                    'id'         => null,
-                                    'label'      => $label,
-                                    'filename'   => basename($case->$field),
-                                    'filepath'   => $case->$field,
-                                    'type'       => 'Persyaratan',
-                                    'created_at' => $case->created_at,
-                                    'can_delete' => false
-                                ];
-                            }
-                        }
-                        foreach ($case->documents as $doc) {
-                            $canDel = false;
-                            if (auth()->user()->role !== 'freelancer') {
-                                $canDel = true;
-                            } elseif ($doc->case && $doc->case->created_by === auth()->id()) {
-                                $canDel = true;
-                            }
+                        if (!empty($case->file_selesai)) {
                             $fcFiles[] = [
-                                'id'         => $doc->id_dok,
-                                'label'      => 'Dokumen Pendukung',
-                                'filename'   => $doc->filename,
-                                'filepath'   => $doc->filepath,
-                                'type'       => 'Pendukung',
-                                'created_at' => $doc->created_at,
-                                'can_delete' => $canDel
+                                'id'         => null,
+                                'label'      => 'Dokumen Selesai',
+                                'filename'   => basename($case->file_selesai),
+                                'filepath'   => $case->file_selesai,
+                                'type'       => 'Selesai',
+                                'created_at' => $case->updated_at ?: $case->created_at,
+                                'can_delete' => false
                             ];
                         }
                     @endphp
-                    <div class="da-card {{ $loop->first ? 'open' : '' }}" id="fc-card-{{ $case->id_kasus }}">
+                    <div class="da-card" id="fc-card-{{ $case->id_kasus }}">
                         <div class="da-card-header" onclick="toggleCard('fc-card-{{ $case->id_kasus }}','fc-docs-{{ $case->id_kasus }}')">
                             <div class="da-card-left">
                                 <div class="da-folder-icon finished">
@@ -531,7 +499,7 @@
                             </div>
                         </div>
 
-                        <div class="da-expanded" id="fc-docs-{{ $case->id_kasus }}" style="{{ $loop->first ? '' : 'display:none;' }}">
+                        <div class="da-expanded" id="fc-docs-{{ $case->id_kasus }}" style="display:none;">
 
                             {{-- Storage box --}}
                             <div class="da-storage-box">
@@ -548,7 +516,7 @@
                                         <div class="da-storage-path" title="{{ $case->folder_location }}">{{ $case->folder_location }}</div>
                                     </div>
                                 </div>
-                                @if(!$case->is_physical)
+                                @if(!$case->is_physical && (request()->getHost() === 'localhost' || request()->getHost() === '127.0.0.1' || env('APP_ENV') === 'local'))
                                 <button class="da-btn" onclick="event.stopPropagation(); openCaseFolder('{{ $case->id_kasus }}')">
                                     <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                     Buka Folder

@@ -62,4 +62,32 @@ class User extends Authenticatable
     {
         return in_array($this->role, (array) $roles);
     }
+
+    /**
+     * Get the user's avatar URL dynamically.
+     * Rewrites local storage URLs to match the current request host and subfolder
+     * to prevent broken images when switching environments or tunnels (e.g., ngrok).
+     */
+    public function getAvatarUrlAttribute($value)
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http') && str_contains($value, '/storage/avatars/')) {
+            $filename = basename(parse_url($value, PHP_URL_PATH));
+            return url('/storage/avatars/' . $filename);
+        }
+
+        if (str_starts_with($value, 'http') && str_contains($value, '/uploads/avatars/')) {
+            $filename = basename(parse_url($value, PHP_URL_PATH));
+            return url('/uploads/avatars/' . $filename);
+        }
+
+        if (!str_starts_with($value, 'http')) {
+            return url($value);
+        }
+
+        return $value;
+    }
 }

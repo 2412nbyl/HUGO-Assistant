@@ -25,6 +25,12 @@ class LoginCsrfTest extends TestCase
      */
     public function test_login_post_fails_without_csrf()
     {
+        $this->app->singleton(\App\Http\Middleware\VerifyCsrfToken::class, function ($app) {
+            return new class($app, $app->make(\Illuminate\Contracts\Encryption\Encrypter::class)) extends \App\Http\Middleware\VerifyCsrfToken {
+                protected function runningUnitTests() { return false; }
+            };
+        });
+
         $response = $this->post('/login', [
             'username' => 'admin',
             'password' => 'password',

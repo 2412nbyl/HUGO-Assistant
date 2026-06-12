@@ -220,6 +220,13 @@
             padding-right: 48px;
         }
 
+        /* Hide the browser's native password-reveal eye (Edge/Chrome) to avoid
+           doubling up with our custom toggle-eye button */
+        #pass::-ms-reveal,
+        #pass::-ms-clear {
+            display: none;
+        }
+
         .input-wrap input:focus {
             border-color: var(--accent);
 

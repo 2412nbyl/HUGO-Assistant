@@ -36,6 +36,8 @@ class FinishedCaseController extends Controller
 
         $cases = $query->get();
 
+        $isLocal = request()->getHost() === 'localhost' || request()->getHost() === '127.0.0.1' || env('APP_ENV') === 'local';
+
         // Attach folder location and list files for each case
         foreach ($cases as $case) {
             $archive = Archive::where('id_kasus', $case->id_kasus)->first();
@@ -45,12 +47,18 @@ class FinishedCaseController extends Controller
                 $case->folder_location = $archive->folder_location;
                 $case->is_physical = strpos($archive->folder_location, '/') === false && strpos($archive->folder_location, '\\') === false;
             } else {
-                $case->folder_location = storage_path('app/public/case-files/' . $case->id_kasus);
+                if ($isLocal) {
+                    $case->folder_location = storage_path('app/public/case-files/' . $case->id_kasus);
+                } else {
+                    $case->folder_location = url('storage/case-files/' . $case->id_kasus);
+                }
                 $case->is_physical = false;
             }
 
-            // Standardize/fix paths to windows formatting
-            $case->folder_location = str_replace('/', DIRECTORY_SEPARATOR, $case->folder_location);
+            // Standardize/fix paths to windows formatting only on local
+            if ($isLocal) {
+                $case->folder_location = str_replace('/', DIRECTORY_SEPARATOR, $case->folder_location);
+            }
         }
 
         return view('finished_cases.index', compact('cases'));
@@ -66,6 +74,11 @@ class FinishedCaseController extends Controller
         // Check ownership for freelancer
         if (Auth::user()->role === 'freelancer' && $case->created_by !== Auth::id()) {
             return response()->json(['success' => false, 'message' => 'Akses ditolak.'], 403);
+        }
+
+        $isLocal = request()->getHost() === 'localhost' || request()->getHost() === '127.0.0.1' || env('APP_ENV') === 'local';
+        if (!$isLocal) {
+            return response()->json(['success' => false, 'message' => 'Membuka folder lokal hanya didukung pada server lokal (localhost). Silakan unduh dokumen langsung dari daftar di bawah.']);
         }
 
         $archive = Archive::where('id_kasus', $case->id_kasus)->first();

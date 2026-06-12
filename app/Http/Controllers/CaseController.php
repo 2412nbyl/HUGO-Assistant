@@ -84,13 +84,15 @@ class CaseController extends Controller
         $validated['created_by']    = Auth::id();
         $validated['nominal_bayar'] = $validated['nominal_bayar'] ?? 0;
 
-        $fileFields = ['file_ktp', 'file_npwp', 'file_kk', 'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah'];
+        $fileFields = ['file_ktp', 'file_npwp', 'file_kk', 'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah', 'file_selesai'];
         $uploadedDocs = [];
         foreach ($fileFields as $field) {
             if ($request->hasFile($field)) {
                 $path = $request->file($field)->store('case-files', 'public');
                 $validated[$field] = $path;
-                $uploadedDocs[$field] = $path;
+                if ($field !== 'file_selesai') {
+                    $uploadedDocs[$field] = $path;
+                }
             }
         }
 
@@ -158,20 +160,24 @@ class CaseController extends Controller
             $validated['nominal_bayar'] = $validated['nominal_bayar'] ?? 0;
         }
 
-        $fileFields = ['file_ktp', 'file_npwp', 'file_kk', 'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah'];
+        $fileFields = ['file_ktp', 'file_npwp', 'file_kk', 'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah', 'file_selesai'];
         $uploadedDocs = [];
         foreach ($fileFields as $field) {
             if ($request->hasFile($field)) {
                 if ($case->$field) {
                     Storage::disk('public')->delete($case->$field);
-                    // Remove old record in case_documents table to avoid duplicate entries
-                    CaseDocument::where('id_kasus', $case->id_kasus)
-                        ->where('filepath', $case->$field)
-                        ->delete();
+                    if ($field !== 'file_selesai') {
+                        // Remove old record in case_documents table to avoid duplicate entries
+                        CaseDocument::where('id_kasus', $case->id_kasus)
+                            ->where('filepath', $case->$field)
+                            ->delete();
+                    }
                 }
                 $path = $request->file($field)->store('case-files', 'public');
                 $validated[$field] = $path;
-                $uploadedDocs[$field] = $path;
+                if ($field !== 'file_selesai') {
+                    $uploadedDocs[$field] = $path;
+                }
             }
         }
 
@@ -381,7 +387,7 @@ class CaseController extends Controller
         $doc = CaseDocument::where('id_dok', $id)->firstOrFail();
         
         // Freelancers can only delete from cases they created
-        if (Auth::user()->role === 'freelancer' && $doc->case->created_by !== Auth::id()) {
+        if (Auth::user()->role === 'freelancer' && (!$doc->case || $doc->case->created_by !== Auth::id())) {
             return response()->json(['success' => false, 'message' => 'Akses ditolak.'], 403);
         }
 

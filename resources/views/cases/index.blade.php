@@ -1048,9 +1048,6 @@
                 document.getElementById('filter-form').submit();
             }
 
-            @if (session('success'))
-                showToast('{{ session('success') }}', 'success');
-            @endif
         </script>
     @endpush
 @endsection

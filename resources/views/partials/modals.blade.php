@@ -265,7 +265,7 @@
 </style>
 
 <div id="profile-modal" class="modal-overlay" onclick="if(event.target===this)closeProfileModal()">
-    <div class="modal-box" style="max-width: 440px; display: flex; flex-direction: column; border-radius: 20px; overflow: hidden; padding: 0;">
+    <div class="modal-box" style="max-width: 440px; display: flex; flex-direction: column; border-radius: 20px; padding: 0;">
         
         <div class="profile-tabs">
             <button type="button" class="profile-tab-btn active" id="btn-tab-info" onclick="switchProfileTab('info')">Info Profil</button>
@@ -273,7 +273,7 @@
         </div>
 
         <!-- TAB CONTENT: INFO -->
-        <div class="profile-tab-content active" id="tab-profile-info">
+        <div class="profile-tab-content active" id="tab-profile-info" style="overflow-y: auto; flex: 1;">
             <div style="padding: 0 24px 24px;">
                 <div class="avatar-preview-wrap">
                     <label class="avatar-frame" for="avatar-file-input">
@@ -322,7 +322,7 @@
         </div>
 
         <!-- TAB CONTENT: SECURITY -->
-        <div class="profile-tab-content" id="tab-profile-security">
+        <div class="profile-tab-content" id="tab-profile-security" style="overflow-y: auto; flex: 1;">
             <div style="padding: 0 24px 24px;">
                 <div class="profile-form-group">
                     <label>Kata Sandi Sekarang</label>
@@ -368,6 +368,11 @@ function cancelCrop() {
     document.getElementById('crop-controls').style.display = 'none';
     document.getElementById('crop-save-wrap').style.display = 'none';
     document.getElementById('avatar-preview').style.display = '';
+    if (window._originalAvatarSrc) {
+        document.getElementById('avatar-preview').src = window._originalAvatarSrc;
+    }
+    const fileInput = document.getElementById('avatar-file-input');
+    if (fileInput) fileInput.value = '';
 }
 </script>
 

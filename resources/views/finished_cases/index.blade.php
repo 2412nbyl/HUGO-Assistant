@@ -185,36 +185,14 @@
         <div class="fc-list">
             @foreach($cases as $case)
                 @php
-                    // Collect primary files
-                    $primaryFields = [
-                        'file_ktp'            => 'KTP',
-                        'file_npwp'           => 'NPWP',
-                        'file_kk'             => 'Kartu Keluarga',
-                        'file_surat_tanah'    => 'Surat Tanah',
-                        'file_surat_perintah' => 'Surat Perintah',
-                        'file_buku_nikah'     => 'Buku Nikah',
-                    ];
                     $files = [];
-                    foreach ($primaryFields as $field => $label) {
-                        if (!empty($case->$field)) {
-                            $files[] = [
-                                'label'      => $label,
-                                'filename'   => basename($case->$field),
-                                'filepath'   => $case->$field,
-                                'type'       => 'Persyaratan',
-                                'created_at' => $case->created_at,
-                            ];
-                        }
-                    }
-
-                    // Add support documents
-                    foreach ($case->documents as $doc) {
+                    if (!empty($case->file_selesai)) {
                         $files[] = [
-                            'label'      => 'Dokumen Pendukung',
-                            'filename'   => $doc->filename,
-                            'filepath'   => $doc->filepath,
-                            'type'       => 'Pendukung',
-                            'created_at' => $doc->created_at,
+                            'label'      => 'Dokumen Selesai',
+                            'filename'   => basename($case->file_selesai),
+                            'filepath'   => $case->file_selesai,
+                            'type'       => 'Selesai',
+                            'created_at' => $case->updated_at ?: $case->created_at,
                         ];
                     }
                 @endphp
@@ -259,7 +237,7 @@
                                     <div class="fc-storage-path" title="{{ $case->folder_location }}">{{ $case->folder_location }}</div>
                                 </div>
                             </div>
-                            @if(!$case->is_physical)
+                            @if(!$case->is_physical && (request()->getHost() === 'localhost' || request()->getHost() === '127.0.0.1' || env('APP_ENV') === 'local'))
                                 <button class="fc-btn" onclick="event.stopPropagation(); openLocalFolder('{{ $case->id_kasus }}')">
                                     <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                     Buka Folder

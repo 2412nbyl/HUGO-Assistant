@@ -112,14 +112,6 @@
 
     </style>
 
-    @if (session('message'))
-        @push('scripts')
-            <script>
-                window.addEventListener('DOMContentLoaded', () => showToast('{{ session('message') }}', 'success'));
-            </script>
-        @endpush
-    @endif
-
     <div class="page-header-row">
         <span style="font-size:13.5px;color:var(--text-muted);">{{ $users->count() }} pengguna terdaftar</span>
         <button class="btn btn-primary" onclick="document.getElementById('add-user-modal').classList.add('open')">

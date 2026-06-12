@@ -131,12 +131,26 @@ class UserController extends Controller
      */
     public function uploadAvatar(Request $request)
     {
+        try {
+            $userLog = auth()->user() ? auth()->user()->name . ' (ID: ' . auth()->id() . ')' : 'Guest';
+            $imgLog = substr($request->input('image'), 0, 50);
+            file_put_contents(base_path('scratch/upload_debug.log'), sprintf(
+                "[%s] Request received. User: %s | Image: %s...\n",
+                date('Y-m-d H:i:s'),
+                $userLog,
+                $imgLog
+            ), FILE_APPEND);
+        } catch (\Throwable $e) {}
+
         $request->validate(['image' => 'required|string']);
 
         $dataUrl = $request->input('image');
 
         // Parse base64 data URL
         if (!preg_match('/^data:image\/(\w+);base64,/', $dataUrl, $matches)) {
+            try {
+                file_put_contents(base_path('scratch/upload_debug.log'), "[" . date('Y-m-d H:i:s') . "] Failed: Invalid format regex.\n", FILE_APPEND);
+            } catch (\Throwable $e) {}
             return response()->json(['success' => false, 'message' => 'Format gambar tidak valid'], 422);
         }
 
@@ -161,6 +175,9 @@ class UserController extends Controller
         $saved        = \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $binary);
 
         if (!$saved) {
+            try {
+                file_put_contents(base_path('scratch/upload_debug.log'), "[" . date('Y-m-d H:i:s') . "] Failed: Disk save failed.\n", FILE_APPEND);
+            } catch (\Throwable $e) {}
             return response()->json(['success' => false, 'message' => 'Gagal menyimpan file ke storage'], 500);
         }
 
@@ -181,6 +198,16 @@ class UserController extends Controller
 
         $user->avatar_url = $url;
         $user->save();
+
+        try {
+            file_put_contents(base_path('scratch/upload_debug.log'), sprintf(
+                "[%s] Success! Saved filename: %s | URL: %s | DB saved: %s\n",
+                date('Y-m-d H:i:s'),
+                $filename,
+                $url,
+                $user->avatar_url
+            ), FILE_APPEND);
+        } catch (\Throwable $e) {}
 
         return response()->json(['success' => true, 'url' => $url]);
     }

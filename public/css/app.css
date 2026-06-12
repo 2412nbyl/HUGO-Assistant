@@ -833,6 +833,11 @@ body:not(.chat-page) .top-bar h1 {
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* Scroll lock: applied by JS when any .modal-overlay.open exists */
+body.modal-open {
+    overflow: hidden;
+}
+
 .modal-box {
     background: #fff;
     width: 100%;
@@ -918,7 +923,13 @@ body:not(.chat-page) .top-bar h1 {
 }
 
 /* ─── PROFILE PHOTO POPUP ─── */
-#profile-modal .modal-box { max-width: 400px; overflow-y: auto; }
+#profile-modal .modal-box {
+    max-width: 440px;
+    overflow: hidden; /* clips border-radius */
+    display: flex;
+    flex-direction: column;
+    max-height: 90dvh;
+}
 .avatar-preview-wrap { display: flex; justify-content: center; margin-bottom: 20px; padding: 20px 24px 0; }
 .avatar-preview-large { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #e5e7eb; }
 #crop-canvas { display: none; max-width: 100%; border-radius: 8px; margin: 0 24px 14px; }

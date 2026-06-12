@@ -48,21 +48,39 @@ class PaymentController extends Controller
             $nominalSebagian = (int) preg_replace('/\D/', '', $request->nominal_sebagian);
         }
 
-        // Handle case nominal reduction if status is 'sebagian'
-        if ($newStatus === 'sebagian' && $payment->case && $nominalSebagian > 0) {
-            $case = $payment->case;
-            $oldNominal = $case->nominal_bayar;
-            $newNominal = max(0, $oldNominal - $nominalSebagian);
+        // Determine the new amount (sisa tagihan) based on the new status
+        $caseNominal = $payment->case ? (int) $payment->case->nominal_bayar : 0;
+        $currentRemaining = (int) preg_replace('/\D/', '', $payment->amount ?: 0);
 
-            // Update Case nominal
-            $case->update(['nominal_bayar' => $newNominal]);
+        if ($newStatus === 'lunas') {
+            // Lunas: sisa = 0
+            $newRemaining = 0;
+            $amountFormatted = 'Rp. 0';
+        } elseif ($newStatus === 'belum') {
+            // Belum bayar: sisa = full nominal
+            $newRemaining = $caseNominal;
+            $amountFormatted = 'Rp. ' . number_format($caseNominal, 0, ',', '.');
+        } elseif ($newStatus === 'sebagian') {
+            if ($nominalSebagian > 0) {
+                // Deduct the partial payment from current remaining
+                // If the current remaining is 0 (was lunas), start from full nominal
+                $base = ($currentRemaining > 0) ? $currentRemaining : $caseNominal;
+                $newRemaining = max(0, $base - $nominalSebagian);
+            } else {
+                // No nominal entered, keep current or reset to full if was 0
+                $newRemaining = ($currentRemaining > 0) ? $currentRemaining : $caseNominal;
+            }
+            $amountFormatted = 'Rp. ' . number_format($newRemaining, 0, ',', '.');
+        } else {
+            $newRemaining = $currentRemaining;
+            $amountFormatted = $payment->amount;
+        }
 
-            // Update Payment Amount
-            $amountFormatted = 'Rp. ' . number_format($newNominal, 0, ',', '.');
-            $payment->update(['amount' => $amountFormatted]);
+        $payment->update(['amount' => $amountFormatted]);
 
-            // Log details in note
-            $noteWithNominal = "Bayar Sebagian: Rp. " . number_format($nominalSebagian, 0, ',', '.') . " (Sisa: " . $amountFormatted . ")";
+        // Build note with partial payment detail
+        if ($newStatus === 'sebagian' && $nominalSebagian > 0) {
+            $noteWithNominal = "Bayar Sebagian: Rp. " . number_format($nominalSebagian, 0, ',', '.') . " (Sisa Tagihan: " . $amountFormatted . ")";
             if ($request->note) {
                 $noteWithNominal .= " — " . $request->note;
             }

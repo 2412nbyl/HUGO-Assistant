@@ -71,11 +71,15 @@
                         </div>
                     </div>
 
-                    <h4 style="margin:28px 0 14px; font-size:15px; font-weight:700; color:#111827; border-bottom:1px solid #e5e7eb; padding-bottom:8px;">Ganti File Utama (Bila Perlu)</h4>
+                    <h4 style="margin:28px 0 14px; font-size:15px; font-weight:700; color:#111827; border-bottom:1px solid #e5e7eb; padding-bottom:8px;">Ganti File Utama / Selesai (Bila Perlu)</h4>
                     <div class="case-file-grid">
-                        @foreach (['file_ktp'=>'KTP', 'file_npwp'=>'NPWP', 'file_kk'=>'KK', 'file_surat_tanah'=>'Surat Tanah', 'file_buku_nikah'=>'Buku Nikah', 'file_surat_perintah'=>'Surat Perintah'] as $k => $l)
-                            <div class="form-row" style="margin:0; background:#f9fafb; padding:12px; border-radius:8px; border:1px dashed #d1d5db;">
-                                <label style="display:block; font-size:12.5px; font-weight:600; color:#374151; margin-bottom:8px;">{{ $l }} @if($case->$k) <a href="{{ asset('storage/'.$case->$k) }}" target="_blank" style="color:#16a34a;font-size:11px;float:right;text-decoration:none;">✓ Lihat File</a> @endif</label>
+                        @foreach (['file_ktp'=>'KTP', 'file_npwp'=>'NPWP', 'file_kk'=>'KK', 'file_surat_tanah'=>'Surat Tanah', 'file_buku_nikah'=>'Buku Nikah', 'file_surat_perintah'=>'Surat Perintah', 'file_selesai'=>'Dokumen Selesai'] as $k => $l)
+                            <div class="form-row" style="margin:0; background:{{ $k === 'file_selesai' ? '#fffdf5' : '#f9fafb' }}; padding:12px; border-radius:8px; border:{{ $k === 'file_selesai' ? '2.2px solid #ea580c' : '1px dashed #d1d5db' }};">
+                                <label style="display:block; font-size:12.5px; font-weight:700; color:#374151; margin-bottom:8px;">
+                                    {{ $l }}
+                                    @if($k === 'file_selesai') <span style="color:#ea580c; font-size:10px;">(PENTING)</span> @endif
+                                    @if($case->$k) <a href="{{ asset('storage/'.$case->$k) }}" target="_blank" style="color:#16a34a;font-size:11px;float:right;text-decoration:none;">✓ Lihat File</a> @endif
+                                </label>
                                 <input type="file" name="{{ $k }}" accept=".pdf,.jpg,.jpeg,.png" style="font-size:12px;width:100%;">
                             </div>
                         @endforeach

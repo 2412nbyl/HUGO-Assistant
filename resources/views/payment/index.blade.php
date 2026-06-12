@@ -215,7 +215,7 @@
                 <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#16a34a;fill:none;stroke-width:2.5;display:block;"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <div>
-                <div class="pay-stat-val" style="color:#16a34a;">{{ $totalLunas }}</div>
+                <div class="pay-stat-val" style="color:#16a34a;" id="stat-val-lunas">{{ $totalLunas }}</div>
                 <div class="pay-stat-label">Lunas</div>
             </div>
         </div>
@@ -224,7 +224,7 @@
                 <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#b45309;fill:none;stroke-width:2.5;display:block;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
             <div>
-                <div class="pay-stat-val" style="color:#b45309;">{{ $totalSebagian }}</div>
+                <div class="pay-stat-val" style="color:#b45309;" id="stat-val-sebagian">{{ $totalSebagian }}</div>
                 <div class="pay-stat-label">Sebagian</div>
             </div>
         </div>
@@ -233,7 +233,7 @@
                 <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:#dc2626;fill:none;stroke-width:2.5;display:block;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </div>
             <div>
-                <div class="pay-stat-val" style="color:#dc2626;">{{ $totalBelum }}</div>
+                <div class="pay-stat-val" style="color:#dc2626;" id="stat-val-belum">{{ $totalBelum }}</div>
                 <div class="pay-stat-label">Belum Bayar</div>
             </div>
         </div>
@@ -298,16 +298,16 @@
                     <div class="pay-sub">{{ $pay->case?->case_name }}</div>
                 </div>
 
-                @if($rawAmount)
                 <div class="pay-amount" id="pay-amount-{{ $pay->id_transaksi }}">
-                    <span id="amount-val-{{ $pay->id_transaksi }}" style="font-size:15px; font-weight:800; color:#111827;">
-                        Rp {{ number_format($rawAmount, 0, ',', '.') }}
+                    <span id="amount-val-{{ $pay->id_transaksi }}"
+                        style="font-size:15px; font-weight:800; color:#111827; {{ $rawAmount ? '' : 'display:none;' }}">
+                        Rp {{ $rawAmount ? number_format($rawAmount, 0, ',', '.') : '0' }}
                     </span>
                     @if($updatedAt)
                     <span class="pay-ts">{{ $updatedAt->format('d/m/Y H:i') }}</span>
                     @endif
                 </div>
-                @endif
+
 
                 <span class="badge-premium {{ $pay->status === 'lunas' ? 'badge-green' : ($pay->status === 'sebagian' ? 'badge-orange' : 'badge-red') }}"
                     id="status-badge-{{ $pay->id_transaksi }}" style="flex-shrink:0;">
@@ -468,7 +468,8 @@
             function savePayStatus() {
                 const status  = document.getElementById('pay-new-status').value;
                 const note    = document.getElementById('pay-note').value;
-                const nominal_sebagian = document.getElementById('pay-nominal-sebagian') ? document.getElementById('pay-nominal-sebagian').value : '';
+                const nominalEl = document.getElementById('pay-nominal-sebagian');
+                const nominal_sebagian = nominalEl ? nominalEl.value : '';
                 const saveBtn = document.querySelector('#pay-modal .btn-primary');
                 const oldStatus = paymentsData[editingPayId] ? paymentsData[editingPayId].status : '';
 
@@ -489,31 +490,60 @@
                         document.getElementById('pay-modal').classList.remove('open');
                         showToast('Status pembayaran diperbarui ✓', 'success');
 
-                        // Update badge in DOM
-                        const badge  = document.getElementById(`status-badge-${editingPayId}`);
+                        // ── Update stat counters ──
                         const clsMap = { lunas: 'badge-green', sebagian: 'badge-orange', belum: 'badge-red' };
                         const lblMap = { lunas: 'Lunas', sebagian: 'Sebagian', belum: 'Belum Sama Sekali' };
+                        const statIds = { lunas: 'stat-val-lunas', sebagian: 'stat-val-sebagian', belum: 'stat-val-belum' };
+
+                        if (oldStatus !== status) {
+                            // Decrement old status counter
+                            const oldEl = document.getElementById(statIds[oldStatus]);
+                            if (oldEl) {
+                                const oldVal = parseInt(oldEl.textContent, 10) || 0;
+                                oldEl.textContent = Math.max(0, oldVal - 1);
+                            }
+                            // Increment new status counter
+                            const newEl = document.getElementById(statIds[status]);
+                            if (newEl) {
+                                const newVal = parseInt(newEl.textContent, 10) || 0;
+                                newEl.textContent = newVal + 1;
+                            }
+                        }
+
+                        // ── Update badge in DOM ──
+                        const badge = document.getElementById(`status-badge-${editingPayId}`);
                         if (badge) {
                             badge.className = `badge-premium ${clsMap[status]}`;
                             badge.textContent = lblMap[status];
                         }
 
-                        // Update payment amount text in DOM
-                        if (data.payment && data.payment.amount) {
-                            const amtSpan = document.getElementById(`amount-val-${editingPayId}`);
-                            if (amtSpan) {
-                                let cleanAmt = data.payment.amount.replace('Rp. ', 'Rp ');
-                                amtSpan.textContent = cleanAmt;
+                        // ── Update payment amount in DOM ──
+                        const amtSpan = document.getElementById(`amount-val-${editingPayId}`);
+                        const rawAmount = data.payment && data.payment.amount
+                            ? data.payment.amount.replace(/^Rp\.\s*/i, '').trim()
+                            : null;
+
+                        if (rawAmount !== null && amtSpan) {
+                            const numeric = parseInt(rawAmount.replace(/\D/g, ''), 10);
+
+                            if (status === 'lunas' || numeric === 0) {
+                                // Hide amount span for lunas / zero remaining
+                                amtSpan.style.display = 'none';
+                            } else {
+                                const formatted = isNaN(numeric) ? rawAmount : 'Rp ' + numeric.toLocaleString('id-ID');
+                                amtSpan.textContent = formatted;
+                                amtSpan.style.display = ''; // ensure visible
                             }
                         }
 
-                        // Update internal data
+
+                        // ── Update internal JS data ──
                         if (paymentsData[editingPayId]) {
                             const now = new Date();
                             const fmt = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-                            let noteLog = note;
+                            let noteLog = note || '';
                             if (status === 'sebagian' && nominal_sebagian) {
-                                noteLog = `Bayar Sebagian: Rp. ${nominal_sebagian}` + (note ? ` — ${note}` : '');
+                                noteLog = `Bayar Sebagian: Rp ${nominal_sebagian}` + (note ? ` — ${note}` : '');
                             }
                             paymentsData[editingPayId].history = [
                                 { from: oldStatus, to: status, note: noteLog, by: 'Anda', date: fmt },
@@ -524,6 +554,8 @@
                                 paymentsData[editingPayId].amount = data.payment.amount;
                             }
                         }
+
+                        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Simpan Perubahan'; }
                     } else {
                         showToast(data.message || 'Gagal menyimpan.', 'danger');
                         if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Simpan Perubahan'; }
@@ -540,10 +572,6 @@
                 document.getElementById('filter-form').submit();
             }
 
-            @php $successMsg = session('success'); @endphp
-            @if ($successMsg)
-                window.addEventListener('DOMContentLoaded', () => showToast('{{ addslashes($successMsg) }}', 'success'));
-            @endif
         </script>
     @endpush
 @endsection

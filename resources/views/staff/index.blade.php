@@ -183,11 +183,7 @@
         </button>
     </div>
 
-    @if(session('success'))
-        <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px 16px; border-radius:10px; margin-bottom:16px; font-size:14px; display:flex; align-items:center; gap:8px;">
-            <span>✔</span> {{ session('success') }}
-        </div>
-    @endif
+    {{-- Flash via toast --}}
 
     {{-- ── Filter Bar ── --}}
     <div class="sf-filter-bar">

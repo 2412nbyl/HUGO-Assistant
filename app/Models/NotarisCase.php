@@ -20,7 +20,7 @@ class NotarisCase extends Model
         'case_name', 'type', 'status', 'deadline', 'progress_note',
         'nominal_bayar',
         'file_ktp', 'file_npwp', 'file_kk',
-        'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah',
+        'file_surat_tanah', 'file_surat_perintah', 'file_buku_nikah', 'file_selesai',
         'created_by', 'id_klien', 'id_dok',
     ];
 
