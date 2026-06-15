@@ -72,7 +72,7 @@
                             Archive Document
                         </a>
                     @endif
-                    <a href="{{ route('archives.index', ['tab' => 'finished']) }}" class="nav-sub-item {{ (request()->is('finished-cases*') || (request()->is('archives*') && request()->get('tab') === 'finished')) ? 'active' : '' }}">
+                    <a href="{{ route('finished-cases.index') }}" class="nav-sub-item {{ (request()->is('finished-cases*') || (request()->is('archives*') && request()->get('tab') === 'finished')) ? 'active' : '' }}">
                         Finished Cases
                     </a>
                 </div>
