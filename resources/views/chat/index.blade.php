@@ -880,6 +880,7 @@
             <div class="msg-row" id="typing-row" style="display:none;">
                 <div class="msg-avatar" style="background:#6b7280;">…</div>
                 <div class="msg-group">
+                    <div class="msg-name" style="margin-bottom: 2px;"></div>
                     <div class="msg-bubble theirs" style="padding:0;">
                         <div class="typing-dots">
                             <span></span><span></span><span></span>
@@ -893,6 +894,7 @@
             <div class="chat-input-wrap">
                 <input type="text" class="chat-txt-input" id="chat-page-input"
                     placeholder="Tulis pesan..." autocomplete="off"
+                    oninput="_onChatTyping()"
                     onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendPageChat(); }">
                 <button class="chat-send-btn" onclick="sendPageChat()" title="Kirim">
                     <svg viewBox="0 0 24 24">
@@ -1137,50 +1139,74 @@
         }
 
         function approveReset(msgId, btn) {
-            var newPass = prompt("Masukkan kata sandi baru untuk pengguna ini:");
-            if (newPass === null) return; // User cancelled
-            newPass = newPass.trim();
-            if (!newPass) {
-                showToast('Kata sandi tidak boleh kosong', 'danger');
-                return;
-            }
-            if (newPass.length < 6) {
-                showToast('Sandi minimal 6 karakter', 'danger');
-                return;
-            }
+            showPrompt(
+                'Reset Kata Sandi',
+                'Masukkan kata sandi baru untuk pengguna ini. Min. 8 karakter + 1 karakter khusus.',
+                'Contoh: Pass@1234',
+                function(newPass) {
+                    btn.disabled = true;
+                    btn.textContent = 'Memproses...';
+                    fetch(`{{ url('/chat/approve') }}/${msgId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': window.HUGO_CONFIG.csrf,
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({ password: newPass }),
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if (res.success) {
+                                const card = document.getElementById('req-card-' + msgId);
+                                if (card) {
+                                    const actionEl = card.querySelector('.btn, div[style*="b45309"]');
+                                    if (actionEl) actionEl.outerHTML =
+                                        `<div class="req-approved">✅ Disetujui. Sandi baru: <strong>${esc(res.temp_password)}</strong></div>`;
+                                }
+                                showToast('Sandi berhasil direset ✓', 'success');
+                            } else {
+                                showToast(res.message || 'Gagal', 'danger');
+                                btn.disabled = false;
+                                btn.textContent = '✔ Setujui & Reset Sandi';
+                            }
+                        })
+                        .catch(() => {
+                            showToast('Terjadi kesalahan', 'danger');
+                            btn.disabled = false;
+                            btn.textContent = '✔ Setujui & Reset Sandi';
+                        });
+                },
+                {
+                    type: 'password',
+                    icon: '🔐',
+                    validate: function(val) {
+                        if (val.length < 8) return 'Kata sandi minimal 8 karakter.';
+                        if (!/[!@#$%^&*()_+\-=\[\]{};:\'"\\|,.<>\/?`~]/.test(val)) {
+                            return 'Kata sandi harus mengandung minimal 1 karakter khusus.';
+                        }
+                        return null;
+                    }
+                }
+            );
+        }
 
-            btn.disabled = true;
-            btn.textContent = 'Memproses...';
-            fetch(`{{ url('/chat/approve') }}/${msgId}`, {
+        // ── Typing indicator ─────────────────────────────────────────
+        var _typingDebounce = null;
+        function _onChatTyping() {
+            clearTimeout(_typingDebounce);
+            _typingDebounce = setTimeout(function() {
+                fetch('{{ route('chat.typing') }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': window.HUGO_CONFIG.csrf,
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
                     },
-                    body: JSON.stringify({ password: newPass }),
-                })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) {
-                        const card = document.getElementById('req-card-' + msgId);
-                        if (card) {
-                            const actionEl = card.querySelector('.btn, div[style*="b45309"]');
-                            if (actionEl) actionEl.outerHTML =
-                                `<div class="req-approved">✅ Disetujui. Sandi baru: <strong>${esc(res.temp_password)}</strong></div>`;
-                        }
-                        showToast('Sandi berhasil direset ✓', 'success');
-                    } else {
-                        showToast(res.message || 'Gagal', 'danger');
-                        btn.disabled = false;
-                        btn.textContent = '✔ Setujui & Reset Sandi';
-                    }
-                })
-                .catch(() => {
-                    showToast('Terjadi kesalahan', 'danger');
-                    btn.disabled = false;
-                    btn.textContent = '✔ Setujui & Reset Sandi';
-                });
+                    body: JSON.stringify({ receiver_id: receiverId || null })
+                }).catch(function(){});
+            }, 500);
         }
 
         function pollPageChat() {
@@ -1189,6 +1215,22 @@
             fetch(url, { headers:{'ngrok-skip-browser-warning':'true'} })
                 .then(function(r){ return r.json(); })
                 .then(function(data) {
+                    // ── Typing indicator ──
+                    var typingRow = document.getElementById('typing-row');
+                    if (typingRow) {
+                        var typing = data.typing || [];
+                        if (typing.length > 0) {
+                            var names = typing.map(function(u){ return esc(u.name); }).join(', ');
+                            var avatarEl = typingRow.querySelector('.msg-avatar');
+                            if (avatarEl) avatarEl.textContent = typing[0].name.charAt(0).toUpperCase();
+                            var nameEl = typingRow.querySelector('.msg-name');
+                            if (nameEl) nameEl.textContent = names + ' sedang mengetik...';
+                            typingRow.style.display = 'flex';
+                        } else {
+                            typingRow.style.display = 'none';
+                        }
+                    }
+
                     if (data.messages && data.messages.length > 0) {
                         var area = document.getElementById('chat-msgs-area');
                         var sidebar = document.querySelector('.chat-sidebar');
@@ -1218,6 +1260,14 @@
                                 var sItem = sidebar.querySelector('.user-list-item[href*="user_id=' + m.sender.id + '"]');
                                 if (sItem && globalItem) {
                                     globalItem.after(sItem);
+                                }
+
+                                // Update sidebar unread badge for this contact
+                                if (window.HugoChatUi) {
+                                    var contactKey = m.receiver_id ? String(m.sender.id) : 'global';
+                                    if (contactKey !== HugoChatUi.getChatReadKey()) {
+                                        HugoChatUi.pollContactBadges();
+                                    }
                                 }
                             }
                         });

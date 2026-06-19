@@ -12,6 +12,19 @@ use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
+    /**
+     * Returns strong password validation rules.
+     * Min 8 chars + at least one special character.
+     */
+    private function strongPasswordRules(): array
+    {
+        return [
+            'required',
+            'string',
+            'min:8',
+            'regex:/[!@#$%^&*()_+\-=\[\]{};:\'"\\|,.<>\/?`~]/',
+        ];
+    }
     public function createForm()
     {
         if (auth()->user()->role !== 'admin') abort(403);
@@ -22,12 +35,17 @@ class UserController extends Controller
     {
         if (auth()->user()->role !== 'admin') abort(403);
 
-        $data = $request->validate([
+        $rules = [
             'name'     => 'required|string|max:255',
             'username' => 'required|string|unique:users,username',
             'email'    => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
+            'password' => $this->strongPasswordRules(),
             'role'     => 'required|string|in:admin,notaris,staff,freelancer',
+        ];
+
+        $data = $request->validate($rules, [
+            'password.min'   => 'Kata sandi minimal 8 karakter.',
+            'password.regex' => 'Kata sandi harus mengandung minimal 1 karakter khusus (contoh: @, #, !, %).',
         ]);
 
         $data['password'] = Hash::make($data['password']);
@@ -50,10 +68,13 @@ class UserController extends Controller
 
         // Only validate password if one is provided
         if ($request->filled('password')) {
-            $rules['password'] = 'required|string|min:6';
+            $rules['password'] = $this->strongPasswordRules();
         }
 
-        $data = $request->validate($rules);
+        $data = $request->validate($rules, [
+            'password.min'   => 'Kata sandi minimal 8 karakter.',
+            'password.regex' => 'Kata sandi harus mengandung minimal 1 karakter khusus (contoh: @, #, !, %).',
+        ]);
 
         if ($request->filled('password')) {
             $data['password'] = Hash::make($data['password']);
@@ -214,9 +235,14 @@ class UserController extends Controller
 
     public function changePassword(Request $request)
     {
-        $request->validate([
+        $rules = [
             'current_password' => 'required',
-            'new_password'     => 'required|min:6|confirmed',
+            'new_password'     => array_merge($this->strongPasswordRules(), ['confirmed']),
+        ];
+
+        $request->validate($rules, [
+            'new_password.min'   => 'Kata sandi baru minimal 8 karakter.',
+            'new_password.regex' => 'Kata sandi baru harus mengandung minimal 1 karakter khusus (contoh: @, #, !, %).',
         ]);
 
         $user = auth()->user();

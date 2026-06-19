@@ -13,21 +13,34 @@ class GoogleController extends Controller
 {
     /**
      * OAuth redirect_uri must exactly match the host used to start login.
-     * Local and ngrok URLs are both registered in Google Cloud Console.
+     * Priority: 1) Match by current host, 2) APP_URL domain, 3) ngrok, 4) configured redirect.
      */
     private function googleRedirectUrl(Request $request): string
     {
+        $currentHost = $request->getHost();
+
+        // 1. Check ngrok redirect
         $ngrokFull = trim((string) config('services.google.redirect_ngrok', ''));
         if ($ngrokFull !== '') {
             $ngrokHost = parse_url($ngrokFull, PHP_URL_HOST);
-            if ($ngrokHost && strcasecmp($request->getHost(), $ngrokHost) === 0) {
+            if ($ngrokHost && strcasecmp($currentHost, $ngrokHost) === 0) {
                 return $ngrokFull;
             }
         }
 
-        $local = trim((string) config('services.google.redirect', ''));
-        if ($local !== '') {
-            return $local;
+        // 2. Check primary redirect (production domain)
+        $primary = trim((string) config('services.google.redirect', ''));
+        if ($primary !== '') {
+            $primaryHost = parse_url($primary, PHP_URL_HOST);
+            if ($primaryHost && strcasecmp($currentHost, $primaryHost) === 0) {
+                return $primary;
+            }
+        }
+
+        // 3. Fallback: build callback URL from current request host
+        // This handles any domain automatically (local, production, staging)
+        if ($primary !== '') {
+            return $primary;
         }
 
         return url('/auth/google/callback');

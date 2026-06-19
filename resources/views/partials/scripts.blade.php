@@ -82,14 +82,14 @@ function showToast(msg, type, title){
     setTimeout(function(){ t.style.transition='opacity 0.35s,transform 0.35s'; t.style.opacity='0'; t.style.transform='translateY(-8px) scale(0.96)'; setTimeout(function(){ t.remove(); },380); },4200);
 }
 
-/* ─── Global Session Flash → Toast ────────────────────────────────── */
+/* ─── Global Session Flash → Toast ──────────────────────────── */
 (function(){
     var flashes = [
-        @if(session('success'))  { msg: '{{ addslashes(session('success')) }}',  type: 'success' }, @endif
-        @if(session('message'))  { msg: '{{ addslashes(session('message')) }}',  type: 'success' }, @endif
-        @if(session('error'))    { msg: '{{ addslashes(session('error')) }}',    type: 'danger'  }, @endif
-        @if(session('warning'))  { msg: '{{ addslashes(session('warning')) }}',  type: 'warning' }, @endif
-        @if(session('info'))     { msg: '{{ addslashes(session('info')) }}',     type: 'info'    }, @endif
+        @if(session('success'))  { msg: @json(session('success')),  type: 'success' }, @endif
+        @if(session('message'))  { msg: @json(session('message')),  type: 'success' }, @endif
+        @if(session('error'))    { msg: @json(session('error')),    type: 'danger'  }, @endif
+        @if(session('warning'))  { msg: @json(session('warning')),    type: 'warning' }, @endif
+        @if(session('info'))     { msg: @json(session('info')),     type: 'info'    }, @endif
     ];
     if (!flashes.length) return;
     function fire() {
@@ -131,6 +131,51 @@ function showConfirm(title, msg, onOk, icon, onCancel){
     overlay.onclick=function(e){ if(e.target===overlay){ overlay.classList.remove('open'); if(typeof onCancel==='function') onCancel(); } };
 }
 function closeConfirm(){ var o=document.getElementById('confirm-modal'); if(o) o.classList.remove('open'); }
+
+/* ─── Prompt Modal (replaces browser prompt()) ──────────────── */
+var _promptCb = null;
+function showPrompt(title, subtitle, placeholder, onOk, opts) {
+    opts = opts || {};
+    var overlay = document.getElementById('prompt-modal');
+    var input   = document.getElementById('prompt-input');
+    var errEl   = document.getElementById('prompt-error');
+    if (!overlay || !input) return;
+    document.getElementById('prompt-title').textContent    = title || 'Input';
+    document.getElementById('prompt-subtitle').textContent = subtitle || '';
+    document.getElementById('prompt-icon').textContent     = opts.icon || '\u270f\ufe0f';
+    input.type        = opts.type || 'text';
+    input.placeholder = placeholder || '';
+    input.value       = '';
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    _promptCb = { onOk: onOk, validate: opts.validate };
+    overlay.classList.add('open');
+    setTimeout(function(){ input.focus(); }, 120);
+}
+function closePromptModal() {
+    var overlay = document.getElementById('prompt-modal');
+    if (overlay) overlay.classList.remove('open');
+    _promptCb = null;
+}
+function _promptConfirm() {
+    var input   = document.getElementById('prompt-input');
+    var errEl   = document.getElementById('prompt-error');
+    var val     = input ? input.value.trim() : '';
+    if (!val) {
+        if (errEl) { errEl.textContent = 'Input tidak boleh kosong.'; errEl.style.display = 'block'; }
+        return;
+    }
+    if (_promptCb && typeof _promptCb.validate === 'function') {
+        var msg = _promptCb.validate(val);
+        if (msg) {
+            if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+            return;
+        }
+    }
+    if (errEl) errEl.style.display = 'none';
+    closePromptModal();
+    if (_promptCb && typeof _promptCb.onOk === 'function') _promptCb.onOk(val);
+    _promptCb = null;
+}
 
 
 /* ─── Chat Notification Badge Poller ────────────────────────────────── */
@@ -246,29 +291,34 @@ function closeConfirm(){ var o=document.getElementById('confirm-modal'); if(o) o
     (function(){
         if(!window.HUGO_CONFIG) return;
 
-        var bdayPromise = fetch(window.HUGO_CONFIG.birthdayUrl, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json','ngrok-skip-browser-warning':'true'} })
-            .then(function(r){ return r.ok ? r.json() : []; });
+        var _bdayShownIds = JSON.parse(sessionStorage.getItem('hugo_bday_shown_ids') || '[]');
 
-        function checkAndShow() {
-            bdayPromise.then(function(data){
-                if(!data||!data.length) return;
-                var badge=document.getElementById('case-birthday-badge');
-                if(badge) badge.style.display='flex';
-                
-                // Check snooze
-                const ignoreUntil = localStorage.getItem('hugo_bday_ignore_until');
-                if (ignoreUntil && new Date(ignoreUntil) > new Date()) return;
+        function fetchAndCheckBirthdays() {
+            fetch(window.HUGO_CONFIG.birthdayUrl, { headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json','ngrok-skip-browser-warning':'true'} })
+                .then(function(r){ return r.ok ? r.json() : []; })
+                .then(function(data){
+                    if(!data||!data.length) return;
+                    var badge=document.getElementById('case-birthday-badge');
+                    if(badge) badge.style.display='flex';
 
-                // Show modal once per "login session" if on dashboard
-                if(!sessionStorage.getItem('hugo_bday_shown_today')){
+                    // Check snooze
+                    const ignoreUntil = localStorage.getItem('hugo_bday_ignore_until');
+                    if (ignoreUntil && new Date(ignoreUntil) > new Date()) return;
+
+                    // Find NEW birthdays that haven't been shown yet this session
+                    var newBdays = data.filter(function(b){
+                        return !_bdayShownIds.includes(String(b.id));
+                    });
+
+                    if (newBdays.length === 0) return;
                     if (!window.location.pathname.includes('/dashboard')) return;
 
                     var list=document.getElementById('birthday-list'); if(!list) return;
                     list.innerHTML=data.map(function(b){
                         var isToday = b.is_today;
-                        var crownHtml = isToday ? '<span class="bday-crown">👑</span>' : '';
+                        var crownHtml = isToday ? '<span class="bday-crown">\uD83D\uDC51</span>' : '';
                         var tagClass = isToday ? 'bday-tag today' : 'bday-tag upcoming';
-                        var tagText = isToday ? 'Hari Ini 🎂' : b.days_until + ' hari lagi 🎈';
+                        var tagText = isToday ? 'Hari Ini \uD83C\uDF82' : b.days_until + ' hari lagi \uD83C\uDF88';
                         var avatarClass = isToday ? 'bday-avatar is-today' : 'bday-avatar';
 
                         return '<div class="bday-card-item">'
@@ -286,18 +336,26 @@ function closeConfirm(){ var o=document.getElementById('confirm-modal'); if(o) o
                             + '</div>'
                             + '</div>';
                     }).join('');
+
                     var modal=document.getElementById('birthday-modal');
                     if(modal) modal.classList.add('open');
-                    sessionStorage.setItem('hugo_bday_shown_today','1');
-                }
-            }).catch(function(){});
+
+                    // Mark all current IDs as shown
+                    _bdayShownIds = data.map(function(b){ return String(b.id); });
+                    sessionStorage.setItem('hugo_bday_shown_ids', JSON.stringify(_bdayShownIds));
+
+                }).catch(function(){});
         }
 
+        // Run immediately on load
         if (document.readyState === 'complete') {
-            checkAndShow();
+            fetchAndCheckBirthdays();
         } else {
-            window.addEventListener('load', checkAndShow);
+            window.addEventListener('load', fetchAndCheckBirthdays);
         }
+
+        // Then poll every 5 minutes for real-time updates
+        setInterval(fetchAndCheckBirthdays, 5 * 60 * 1000);
     })();
 
 
@@ -408,5 +466,56 @@ function closeDynamicModal(){ var m=document.getElementById('dynamic-modal'); if
     if(!b||!s) return;
     b.onclick=function(){ s.classList.toggle('open'); if(o) o.classList.toggle('show'); };
     if(o) o.onclick=function(){ s.classList.remove('open'); o.classList.remove('show'); };
+})();
+
+/* ─── Auto-Logout: 20 menit idle ────────────────────────────────────────── */
+(function(){
+    if(!window.HUGO_CONFIG) return;
+
+    var IDLE_MS    = 20 * 60 * 1000; // 20 minutes
+    var WARN_MS    = 19 * 60 * 1000; // warn at 19 minutes (1 min before logout)
+    var idleTimer  = null;
+    var warnTimer  = null;
+    var warnShown  = false;
+    var logoutUrl  = window.HUGO_CONFIG.baseUrl + '/logout';
+    var csrfToken  = window.HUGO_CONFIG.csrf;
+
+    function doLogout() {
+        showToast('Sesi berakhir. Anda akan dialihkan ke halaman login...', 'warning');
+        setTimeout(function() {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = logoutUrl;
+            var csrf = document.createElement('input');
+            csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = csrfToken;
+            form.appendChild(csrf);
+            document.body.appendChild(form);
+            form.submit();
+        }, 1500);
+    }
+
+    function resetIdleTimer() {
+        clearTimeout(idleTimer);
+        clearTimeout(warnTimer);
+        warnShown = false;
+
+        warnTimer = setTimeout(function() {
+            if (!warnShown) {
+                warnShown = true;
+                showToast('⚠️ Sesi Anda akan berakhir dalam 1 menit karena tidak aktif.', 'warning');
+            }
+        }, WARN_MS);
+
+        idleTimer = setTimeout(doLogout, IDLE_MS);
+    }
+
+    // Listen to all user activity events
+    var events = ['mousemove','mousedown','keydown','touchstart','scroll','click','wheel'];
+    events.forEach(function(evt) {
+        document.addEventListener(evt, resetIdleTimer, { passive: true, capture: true });
+    });
+
+    // Start the timer
+    resetIdleTimer();
 })();
 </script>

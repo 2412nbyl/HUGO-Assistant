@@ -116,6 +116,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/chat', [ChatController::class, 'store'])->name('chat.store');
     Route::get('/chat/poll', [ChatController::class, 'poll'])->name('chat.poll');
     Route::post('/chat/approve/{id}', [ChatController::class, 'approve']);
+    Route::post('/chat/typing', [ChatController::class, 'typing'])->name('chat.typing');
 
     // FIX: corrected method names (was updateAvatar / updatePassword)
     Route::post('/profile/avatar', [UserController::class, 'uploadAvatar']);

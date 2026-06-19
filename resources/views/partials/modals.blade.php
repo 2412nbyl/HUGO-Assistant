@@ -333,7 +333,7 @@
                 <div class="profile-form-group">
                     <label>Kata Sandi Baru</label>
                     <div class="profile-input-wrap">
-                        <input type="password" id="new_password" placeholder="Min. 6 karakter">
+                        <input type="password" id="new_password" placeholder="Min. 8 karakter + karakter khusus (@#!%)">
                     </div>
                 </div>
                 <div class="profile-form-group" style="margin-bottom: 24px;">
@@ -388,6 +388,30 @@ function cancelCrop() {
         <div class="modal-footer" style="justify-content:center;">
             <button class="btn btn-secondary" onclick="closeConfirm()">Batal</button>
             <button class="btn btn-danger" id="confirm-ok-btn">Ya, Lanjutkan</button>
+        </div>
+    </div>
+</div>
+
+<!-- ─── PROMPT MODAL (replaces browser prompt()) ─── -->
+<div id="prompt-modal" class="modal-overlay" onclick="if(event.target===this)closePromptModal()">
+    <div class="modal-box" style="max-width: 400px;">
+        <div class="modal-header" style="justify-content:center; flex-direction:column; text-align:center; gap:6px;">
+            <div class="confirm-icon" id="prompt-icon" style="font-size:28px;">✏️</div>
+            <span class="modal-title" id="prompt-title">Input</span>
+            <p id="prompt-subtitle" style="font-size:13px; color:#6b7280; margin:0;"></p>
+        </div>
+        <div style="padding: 0 4px 4px;">
+            <input type="text" id="prompt-input"
+                style="width:100%; padding:11px 14px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:13.5px; font-family:'Inter',sans-serif; color:#1e293b; outline:none; background:#f8fafc; transition: border-color 0.15s, box-shadow 0.15s; box-sizing:border-box;"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();_promptConfirm();}"
+                onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px rgba(220,38,38,0.08)';"
+                onblur="this.style.borderColor='#e2e8f0';this.style.boxShadow='none';"
+                placeholder="">
+            <div id="prompt-error" style="color:#ef4444;font-size:12px;margin-top:6px;display:none;"></div>
+        </div>
+        <div class="modal-footer" style="justify-content:center;">
+            <button class="btn btn-secondary" onclick="closePromptModal()">Batal</button>
+            <button class="btn btn-primary" id="prompt-ok-btn" onclick="_promptConfirm()">OK</button>
         </div>
     </div>
 </div>

@@ -201,7 +201,7 @@
                         {{-- Hard Delete: Admin only --}}
                         @if(auth()->user()->role === 'admin')
                             <form action="{{ route('users.destroy', $u->id) }}" method="POST"
-                                  onsubmit="return confirm('HAPUS PERMANEN akun {{ addslashes($u->name) }}? Tindakan ini tidak dapat dibatalkan.')">
+                                  onsubmit="event.preventDefault(); showConfirm('Hapus Akun Permanen', 'Yakin hapus permanen akun <strong>{{ addslashes($u->name) }}</strong>? Tindakan ini tidak dapat dibatalkan.', () => this.submit(), '!');">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="btn" style="font-size:12px;padding:6px 14px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;">
                                     <svg viewBox="0 0 24 24" style="width:14px;height:14px;margin-bottom:-2px;margin-right:2px;stroke:#dc2626;fill:none;stroke-width:2;">
@@ -242,8 +242,8 @@
                     <div class="form-row">
                         <label>Password *</label>
                         <div class="input-wrap">
-                            <input type="password" name="password" id="new-user-password" placeholder="Min. 6 karakter" required
-                                minlength="6">
+                            <input type="password" name="password" id="new-user-password" placeholder="Min. 8 karakter + simbol (@#!%)" required
+                                minlength="8">
                             <span class="toggle-eye" onclick="toggleNewPass()" title="Tampilkan/Sembunyikan">
                                 <svg id="np-eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round">
@@ -299,8 +299,8 @@
                     <div class="form-row">
                         <label>Password (Kosongkan jika tidak diubah)</label>
                         <div class="input-wrap">
-                            <input type="password" name="password" id="edit-user-password" placeholder="Min. 6 karakter"
-                                minlength="6">
+                            <input type="password" name="password" id="edit-user-password" placeholder="Min. 8 karakter + simbol (@#!%)"
+                                minlength="8">
                             <span class="toggle-eye" onclick="toggleEditPass()" title="Tampilkan/Sembunyikan">
                                 <svg id="ep-eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round">
@@ -341,7 +341,7 @@
         @push('scripts')
             <script>
                 window.addEventListener('DOMContentLoaded', () => {
-                    showToast('{{ $errors->first() }}', 'danger');
+                    showToast(@json($errors->first()), 'danger');
                     document.getElementById('add-user-modal').classList.add('open');
                 });
             </script>

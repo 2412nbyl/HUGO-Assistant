@@ -143,7 +143,8 @@ function updatePassword() {
     const conf = document.getElementById('confirm_password');
     const btn = document.getElementById('save-password-btn');
     if (!current.value || !newp.value || !conf.value) return showToast('Harap isi semua field sandi', 'danger');
-    if (newp.value.length < 6) return showToast('Sandi baru minimal 6 karakter', 'danger');
+    if (newp.value.length < 8) return showToast('Sandi baru minimal 8 karakter', 'danger');
+    if (!/[!@#$%^&*()_+\-=\[\]{};:'"|,.<>\/?`~]/.test(newp.value)) return showToast('Sandi baru harus mengandung minimal 1 karakter khusus (@ # ! % dll)', 'danger');
     if (newp.value !== conf.value) return showToast('Konfirmasi sandi tidak cocok', 'danger');
     btn.disabled = true; btn.textContent = 'Memperbarui...';
     fetch(window.HUGO_CONFIG.passwordUrl || window.HUGO_CONFIG.chatSendUrl.replace('/chat','/profile/password'), {

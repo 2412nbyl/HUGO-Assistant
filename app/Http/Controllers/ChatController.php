@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\ChatMessage;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
 
 class ChatController extends Controller
 {
@@ -207,7 +208,50 @@ class ChatController extends Controller
         return response()->json([
             'messages' => $messages->map(fn($m) => $this->formatMessage($m)),
             'last_id'  => $lastIdNew,
+            'typing'   => $this->getTypingUsers($userId, $receiverId),
         ]);
+    }
+
+    /**
+     * Record that the current user is typing.
+     */
+    public function typing(Request $request)
+    {
+        $userId     = auth()->id();
+        $receiverId = $request->input('receiver_id'); // null = global chat
+        $cacheKey   = 'typing:' . ($receiverId ? "dm:{$userId}:{$receiverId}" : "global:{$userId}");
+
+        Cache::put($cacheKey, [
+            'id'          => $userId,
+            'name'        => auth()->user()->name,
+            'receiver_id' => $receiverId,
+        ], now()->addSeconds(6));
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Get list of users currently typing (within last 5 seconds).
+     */
+    private function getTypingUsers(int $userId, $receiverId = null): array
+    {
+        $typingUsers = [];
+
+        // Fetch all users to check typing status
+        $users = User::where('id', '!=', $userId)->pluck('id');
+
+        foreach ($users as $uid) {
+            $cacheKey = $receiverId
+                ? "typing:dm:{$uid}:" . $userId   // someone typing TO me in private
+                : "typing:global:{$uid}";           // someone typing in global
+
+            $data = Cache::get($cacheKey);
+            if ($data) {
+                $typingUsers[] = ['id' => $data['id'], 'name' => $data['name']];
+            }
+        }
+
+        return $typingUsers;
     }
 
     /**
@@ -235,8 +279,8 @@ class ChatController extends Controller
         if (!$newPass) {
             return response()->json(['success' => false, 'message' => 'Kata sandi baru diperlukan'], 422);
         }
-        if (strlen($newPass) < 6) {
-            return response()->json(['success' => false, 'message' => 'Sandi minimal 6 karakter'], 422);
+        if (strlen($newPass) < 8 || !preg_match('/[!@#$%^&*()_+\-=\[\]{};:\'"\\|,.<>\/?`~]/', $newPass)) {
+            return response()->json(['success' => false, 'message' => 'Kata sandi minimal 8 karakter dan harus mengandung minimal 1 karakter khusus.'], 422);
         }
 
         $user = User::find($userId);

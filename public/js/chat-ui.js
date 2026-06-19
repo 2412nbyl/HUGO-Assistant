@@ -45,7 +45,7 @@
         if (!dot) return;
         if (count > 0) {
             dot.hidden = false;
-            dot.textContent = count > 99 ? '99+' : count;
+            dot.textContent = count > 9 ? '9+' : count;
             dot.setAttribute('aria-label', count > 1 ? count + ' pesan baru' : 'Pesan baru');
             item.classList.add('has-unread');
         } else {
